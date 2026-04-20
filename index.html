@@ -322,9 +322,9 @@ var _gfUnidad='';function genFormLink(unidad){
   var ing=G("gf-ing").value,egr=G("gf-egr").value,pos=G("gf-pos").value;
   if(!alq){alert("El alquiler es obligatorio");return;}
   var cod=unidad.split("-")[0],e=ED[cod]||{};
-  var base=location.origin+location.pathname.replace("index.html","")+"form.html";
+  var base=location.href.replace(/index\.html.*$/,"").replace(/\?.*$/,"")+"form.html";
   var url=base+"?u="+encodeURIComponent(unidad)+"&ed="+encodeURIComponent(cod)+"&dir="+encodeURIComponent(e.d||"")+"&alq="+alq+"&dep="+(dep||0)+"&gs="+(gs||0)+"&ing="+ing+"&egr="+egr+"&pos="+pos;
-  var unidad=_gfUnidad;var el=G("gf-link");el.textContent=url;el.style.display="block";
+  var el=G("gf-link");el.textContent=url;el.style.display="block";
   var wa=G("gf-wa");
   var msg="Hola! Te enviamos el formulario de ingreso para el departamento "+unidad+". Por favor completalo con tus datos y firma el acuerdo:\n\n"+url+"\n\nAdministracion: 1555787641";
   wa.innerHTML="<a class='wa' href='https://wa.me/?text="+encodeURIComponent(msg)+"' target='_blank'>💬 Enviar por WhatsApp</a>";
@@ -407,9 +407,9 @@ function cerrarAc(key){
 function openNA(){
   var udl=uds().filter(function(u){return !oA(DATA.iq).filter(function(i){return i.unidad===u&&i.estado==="activo";}).length;});
   var o="<div class='g2'><div class='fld' style='grid-column:1/-1'><label class='lbl'>Unidad *</label><select class='inp' id='na-u'><option value=''>Seleccionar...</option>"+udl.map(function(u){return "<option>"+u+"</option>";}).join("")+"</select></div>";
-  o+=fld("na-n","Nombre y apellido *")+fld("na-d","DNI *")+fld("na-t","Telefono")+fld("na-e","Email","","email")+fld("na-dom","Domicilio");
+  o+=fld("na-n","Nombre y apellido *")+fld("na-d","DNI *")+fld("na-t","Telefono")+fld("na-e","Email","","email");
   o+=fld("na-ce","Contacto emergencia")+fld("na-te","Tel. emergencia");
-  o+=fld("na-alq","Alquiler mensual $","","number")+fld("na-dep","Deposito $","","number")+fld("na-pc","Pago a cuenta $","","number");
+  o+=fld("na-alq","Alquiler mensual $","","number")+fld("na-dep","Deposito $","","number")+fld("na-gs","Gastos de gestion $","","number")+fld("na-pc","Pago a cuenta $","","number");
   o+=fld("na-ing","Inicio contrato","","date")+fld("na-egr","Fin contrato","","date");
   o+="<div class='fld' style='grid-column:1/-1'>"+tad("na-obs","Obs. al ingreso")+"</div></div>";
   o+="<div style='display:flex;justify-content:flex-end;gap:7px;margin-top:12px'><button class='btn bg bsm' onclick='closeModal()'>Cancelar</button><button class='btn bok bsm' onclick='saveNA()'>Guardar</button></div>";
@@ -420,8 +420,8 @@ function saveNA(){
   if(!u||!n||!d){alert("Unidad, nombre y DNI son obligatorios");return;}
   var hist=oA(DATA.hist).filter(function(h){return h.dni===d;});
   if(hist.length>0&&!confirm("Este DNI tiene historial previo. Motivo: "+(hist[0].motivo_egreso||"--")+"\nObs: "+(hist[0].obs_egreso||"--")+"\n\nContinuas?"))return;
-  var id=nid(),alq=Number(G("na-alq").value||0),dep=Number(G("na-dep").value||0),pc=Number(G("na-pc").value||0);
-  var reg={id_ac:id,unidad:u,estado:"activo",nombre:n,dni:d,tel:G("na-t").value,email:G("na-e").value,dom:G("na-dom").value,ct_emerg:G("na-ce").value,tel_emerg:G("na-te").value,alquiler:alq,deposito:dep,pago_cuenta:pc,ingreso:G("na-ing").value,egreso:G("na-egr").value,ultimo_aj:G("na-ing").value,obs_ingreso:G("na-obs").value,obs_egreso:"",fecha_reg:hoy()};
+  var id=nid(),alq=Number(G("na-alq").value||0),dep=Number(G("na-dep").value||0),gs=Number(G("na-gs").value||0),pc=Number(G("na-pc").value||0);
+  var reg={id_ac:id,unidad:u,estado:"activo",nombre:n,dni:d,tel:G("na-t").value,email:G("na-e").value,ct_emerg:G("na-ce").value,tel_emerg:G("na-te").value,alquiler:alq,deposito:dep,gastos:gs,pago_cuenta:pc,total_ingreso:alq+dep+gs,ingreso:G("na-ing").value,egreso:G("na-egr").value,ultimo_aj:G("na-ing").value,obs_ingreso:G("na-obs").value,obs_egreso:"",fecha_reg:hoy()};
   if(pc>0){var cr={id_ac:id,unidad:u,inq:n,mes:mes(),monto_total:alq,sal_ant:0,estado:"parcial",pagos:{}};cr.pagos[Date.now()]={fecha:hoy(),monto:pc,cuenta:"Efectivo",concepto:"Pago a cuenta"};DB.ref("cob").push(cr);}
   DB.ref("iq").push(reg);closeModal();alert("Acuerdo #"+id+" registrado."+(hist.length?" (Reingresante)":""));
 }
