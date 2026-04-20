@@ -249,7 +249,7 @@ function rAcuerdos(){
   var iqA=oA(DATA.iq),udl=uds();
   var act=iqA.filter(function(i){return i.estado==="activo";}).length;
   var lib=udl.filter(function(u){return !iqA.filter(function(i){return i.unidad===u&&i.estado==="activo";}).length;}).length;
-  G("main").innerHTML="<div style='display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px'><div><h2 style='font-size:20px;font-weight:800'>Acuerdos Vigentes</h2><p style='color:#64748B;font-size:11px'>"+act+" activos - "+lib+" libres</p></div><div style='display:flex;gap:5px'><button class='btn bg bsm' onclick='_vD=!_vD;fAc()'>Deptos</button><button class='btn bp bsm' onclick='openNA()'>+ Nuevo</button></div></div><div style='display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap'><input class='inp' id='iq-q' placeholder='Buscar nombre, unidad, DNI, ID...' style='flex:1;min-width:160px' oninput='fAc()'/><select class='inp' id='iq-e' style='max-width:100px' onchange='fAc()'><option value=''>Todos</option>"+Object.keys(ED).map(function(k){return "<option>"+k+"</option>";}).join("")+"</select></div><div id='iq-list'></div>";
+  G("main").innerHTML="<div style='display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px'><div><h2 style='font-size:20px;font-weight:800'>Acuerdos Vigentes</h2><p style='color:#64748B;font-size:11px'>"+act+" activos - "+lib+" libres</p></div><div style='display:flex;gap:5px'><button class='btn bg bsm' onclick='_vD=!_vD;fAc()'>Deptos</button><button class='btn bp bsm' onclick='openNA()'>+ Nuevo</button><button class='btn bpu bsm' onclick='openAjusteCuat()'>Ajuste 4m</button></div></div><div style='display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap'><input class='inp' id='iq-q' placeholder='Buscar nombre, unidad, DNI, ID...' style='flex:1;min-width:160px' oninput='fAc()'/><select class='inp' id='iq-e' style='max-width:100px' onchange='fAc()'><option value=''>Todos</option>"+Object.keys(ED).map(function(k){return "<option>"+k+"</option>";}).join("")+"</select></div><div id='iq-list'></div>";
   fAc();
 }
 function fAc(){
@@ -349,6 +349,7 @@ function openFicha(key){
   o+="<button class='btn bpu bsm' data-ac='"+ki+"'>Ver Acuerdo</button>";
   if(esA){o+="<button class='btn bw bsm' data-obs='"+ki+"'>Observaciones</button>";}
   if(esA){o+="<button class='btn bx bsm' data-cerrar='"+ki+"'>Cerrar Acuerdo</button>";}
+  if(esA){o+="<button class='btn bok bsm' data-renovar='"+ki+"'>Renovar</button>";}
   o+="</div>";
   openModal("Ficha - "+esc(i.nombre),o,true);
   var md=MODS[MODS.length-1];
@@ -357,6 +358,7 @@ function openFicha(key){
     if(t.dataset.ac)verAc(kget(parseInt(t.dataset.ac)));
     else if(t.dataset.obs)editObs(kget(parseInt(t.dataset.obs)));
     else if(t.dataset.cerrar)openCerrar(kget(parseInt(t.dataset.cerrar)));
+    else if(t.dataset.renovar)openRenovar(kget(parseInt(t.dataset.renovar)));
     else if(e.target.classList.contains("ov"))closeModal();
   };
 }
@@ -404,6 +406,113 @@ function cerrarAc(key){
   DB.ref("hist").push(reg);DB.ref("iq/"+key).remove();
   closeModal();closeModal();alert("Acuerdo cerrado. "+i.unidad+" quedo libre.");go("acuerdos");
 }
+// ── RENOVACION ───────────────────────────────────────────────────────────────
+function openRenovar(key){
+  var i=DATA.iq[key];
+  var ki=kpush(key);
+  var o="<p style='color:#94A3B8;font-size:12px;margin-bottom:12px'>Al renovar se registra un nuevo pago de gastos de gestion. Se puede pagar en cuotas.</p>";
+  o+="<div class='g2'>"+fld("rv-alq","Nuevo alquiler $",i.alquiler,"number")+fld("rv-gs","Gastos renovacion $","","number")+"</div>";
+  o+="<div class='g2'>"+fld("rv-ing","Nuevo inicio","","date")+fld("rv-egr","Nuevo fin","","date")+"</div>";
+  o+=sld("rv-cuotas","Gastos en cuotas",["1 cuota (contado)","2 cuotas","3 cuotas"]);
+  o+="<div style='display:flex;justify-content:flex-end;gap:7px;margin-top:12px'><button class='btn bg bsm' onclick='closeModal()'>Cancelar</button><button class='btn bok bsm' data-rv='"+ki+"'>Confirmar Renovacion</button></div>";
+  openModal("Renovar Acuerdo - "+esc(i.unidad),o);
+  var md=MODS[MODS.length-1];
+  md.onclick=function(e){if(e.target.dataset.rv)saveRenovar(kget(parseInt(e.target.dataset.rv)));else if(e.target.classList.contains("ov"))closeModal();};
+}
+function saveRenovar(key){
+  var alq=Number(G("rv-alq").value||0);
+  var gs=Number(G("rv-gs").value||0);
+  var ing=G("rv-ing").value;
+  var egr=G("rv-egr").value;
+  var cuotas=parseInt(G("rv-cuotas").value)||1;
+  if(!alq){alert("El alquiler es obligatorio");return;}
+  // Update inquilino
+  var upd={alquiler:alq,ingreso:ing||DATA.iq[key].ingreso,egreso:egr||DATA.iq[key].egreso,ultimo_aj:ing||hoy()};
+  DB.ref("iq/"+key).update(upd);
+  // Register gastos as partial payments in cobranzas if > 0
+  if(gs>0){
+    var montoCuota=Math.round(gs/cuotas);
+    var m=mes();
+    for(var c=0;c<cuotas;c++){
+      var yr=parseInt(m.split("-")[0]),mo=parseInt(m.split("-")[1])+c;
+      if(mo>12){mo=mo-12;yr++;}
+      var mesC=yr+"-"+String(mo).padStart(2,"0");
+      var cobReg={id_ac:DATA.iq[key].id_ac||"",unidad:DATA.iq[key].unidad,inq:DATA.iq[key].nombre,mes:mesC,monto_total:montoCuota,sal_ant:0,estado:"pendiente",pagos:{},concepto:"Gastos renovacion cuota "+(c+1)+"/"+cuotas};
+      DB.ref("cob").push(cobReg);
+    }
+  }
+  closeModal();closeModal();
+  alert("Renovacion registrada. Nuevo alquiler: "+fmt(alq)+(gs>0?" - Gastos "+fmt(gs)+" en "+cuotas+" cuota"+(cuotas>1?"s":""):""));
+}
+
+// ── AJUSTE CUATRIMESTRAL ──────────────────────────────────────────────────────
+function openAjusteCuat(){
+  var iqA=oA(DATA.iq).filter(function(i){return i.estado==="activo";});
+  if(!iqA.length){alert("No hay acuerdos activos");return;}
+  var o="<p style='color:#94A3B8;font-size:12px;margin-bottom:12px'>Modifica el valor del alquiler para cada unidad. El sistema avisara automaticamente 15 dias antes.</p>";
+  o+="<div style='overflow-x:auto'><table class='tbl'><thead><tr><th>Unidad</th><th>Inquilino</th><th>Actual</th><th>Nuevo valor $</th></tr></thead><tbody>";
+  iqA.sort(function(a,b){return a.unidad.localeCompare(b.unidad);}).forEach(function(i){
+    o+="<tr><td style='font-weight:600'>"+i.unidad+"</td><td style='font-size:11px'>"+esc(i.nombre.split(",")[0])+"</td><td style='color:#10B981'>"+fmt(i.alquiler)+"</td><td><input class='inp' type='number' id='aj-"+i._key+"' value='"+i.alquiler+"' style='padding:4px 8px;font-size:12px'/></td></tr>";
+  });
+  o+="</tbody></table></div>";
+  o+="<div style='display:flex;justify-content:flex-end;gap:7px;margin-top:12px'><button class='btn bg bsm' onclick='closeModal()'>Cancelar</button><button class='btn bok bsm' onclick='saveAjusteCuat()'>Guardar Ajuste</button></div>";
+  openModal("Ajuste Cuatrimestral",o,true);
+}
+function saveAjusteCuat(){
+  var iqA=oA(DATA.iq).filter(function(i){return i.estado==="activo";});
+  var cambios=0;
+  iqA.forEach(function(i){
+    var inp=G("aj-"+i._key);
+    if(inp){
+      var nuevo=Number(inp.value||0);
+      if(nuevo>0&&nuevo!==i.alquiler){
+        DB.ref("iq/"+i._key).update({alquiler:nuevo,nuevo_alq:nuevo,ultimo_aj:hoy()});
+        cambios++;
+      }
+    }
+  });
+  closeModal();
+  alert("Ajuste guardado en "+cambios+" unidades. Las alertas de WhatsApp se envian desde la seccion Alertas 15 dias antes.");
+}
+
+// ── RECARGOS ──────────────────────────────────────────────────────────────────
+function openRecargos(ckey){
+  var c=DATA.cob[ckey];if(!c)return;
+  var ki=kpush(ckey);
+  var pg=pT(c),tot=c.monto_total+Number(c.sal_ant||0),saldo=tot-pg;
+  var rec10=Math.round(c.monto_total*0.10);
+  var o="<p style='color:#94A3B8;font-size:12px;margin-bottom:12px'>"+c.unidad+" - "+esc(c.inq)+" - Saldo: <b style='color:#EF4444'>"+fmt(saldo)+"</b></p>";
+  o+="<div class='card' style='margin-bottom:8px'>";
+  o+="<div style='font-weight:700;margin-bottom:8px'>Aplicar recargo por:</div>";
+  o+="<label style='display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer'><input type='checkbox' id='rc-tardio'/> <span>Pago fuera de termino (+10%: <b>"+fmt(rec10)+"</b>)</span></label>";
+  o+="<label style='display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer'><input type='checkbox' id='rc-digital'/> <span>Pago con medio electronico (+10%: <b>"+fmt(rec10)+"</b>)</span></label>";
+  o+="<div style='display:flex;gap:8px;margin-top:8px'><div style='flex:1'><div class='lbl'>O ingresar monto fijo</div><input class='inp' type='number' id='rc-monto' placeholder='0' style='padding:5px 8px'/></div></div>";
+  o+="</div>";
+  o+="<div style='display:flex;justify-content:flex-end;gap:7px;margin-top:12px'><button class='btn bg bsm' onclick='closeModal()'>Cancelar</button><button class='btn bx bsm' data-rckey='"+ki+"'>Aplicar Recargo</button></div>";
+  openModal("Recargos - "+c.unidad,o);
+  var md=MODS[MODS.length-1];
+  md.onclick=function(e){if(e.target.dataset.rckey)saveRecargo(kget(parseInt(e.target.dataset.rckey)));else if(e.target.classList.contains("ov"))closeModal();};
+}
+function saveRecargo(ckey){
+  var c=DATA.cob[ckey];
+  var tardio=G("rc-tardio").checked;
+  var digital=G("rc-digital").checked;
+  var manual=Number(G("rc-monto").value||0);
+  var monto=manual>0?manual:0;
+  if(tardio)monto+=Math.round(c.monto_total*0.10);
+  if(digital)monto+=Math.round(c.monto_total*0.10);
+  if(!monto){alert("Selecciona un recargo o ingresa un monto");return;}
+  var ups={};
+  var ts=Date.now();
+  ups["cob/"+ckey+"/pagos/"+ts]={fecha:hoy(),monto:monto,cuenta:"Efectivo",concepto:"Recargo"+(tardio?" pago tardio":"")+(digital?" medio electronico":"")};
+  ups["cob/"+ckey+"/monto_total"]=c.monto_total+monto;
+  DB.ref("/").update(ups);
+  closeModal();
+  alert("Recargo de "+fmt(monto)+" aplicado.");
+  setTimeout(rCob,300);
+}
+
+
 function openNA(){
   var udl=uds().filter(function(u){return !oA(DATA.iq).filter(function(i){return i.unidad===u&&i.estado==="activo";}).length;});
   var o="<div class='g2'><div class='fld' style='grid-column:1/-1'><label class='lbl'>Unidad *</label><select class='inp' id='na-u'><option value=''>Seleccionar...</option>"+udl.map(function(u){return "<option>"+u+"</option>";}).join("")+"</select></div>";
@@ -467,12 +576,15 @@ function rCob(){
     row+="<div style='display:flex;gap:9px;align-items:center'><div style='background:"+ec+"22;color:"+ec+";border-radius:9px;padding:5px 8px;font-weight:800;font-size:11px;min-width:44px;text-align:center'>"+c.unidad+"</div>";
     row+="<div><div style='font-weight:600;font-size:13px'>"+esc(c.inq)+"</div><div style='color:#64748B;font-size:10px'>"+fmt(c.monto_total)+(c.sal_ant>0?" + Deuda ant.:"+fmt(c.sal_ant):"")+"</div>"+(ps?"<div style='color:#94A3B8;font-size:9px'>"+ps+"</div>":"")+"</div></div>";
     row+="<div style='display:flex;gap:5px;align-items:center'><div style='color:"+(pg>=tot?"#10B981":"#EF4444")+";font-weight:700;font-size:12px'>"+(pg>=tot?"Al dia":"Debe "+fmt(tot-pg))+"</div>"+bdg(c.estado,CE[c.estado]||"#64748B");
-    if(c.estado!=="pagado")row+="<button class='btn bp bsm' data-pago='"+ki+"'>+Pago</button>";
+    if(c.estado!=="pagado"){row+="<button class='btn bp bsm' data-pago='"+ki+"'>+Pago</button>";row+="<button class='btn bx bsm' data-recargo='"+ki+"'>Recargo</button>";}
     row+="</div></div>";
     rows.push(row);
   });
   G("cob-list").innerHTML=rows.join("");
-  G("cob-list").onclick=function(e){var b=e.target.closest("[data-pago]");if(b)openPago(kget(parseInt(b.dataset.pago)));};
+  G("cob-list").onclick=function(e){
+    var b=e.target.closest("[data-pago]");if(b)openPago(kget(parseInt(b.dataset.pago)));
+    var r=e.target.closest("[data-recargo]");if(r)openRecargos(kget(parseInt(r.dataset.recargo)));
+  };
 }
 function genCob(){
   var iqA=oA(DATA.iq).filter(function(i){return i.estado==="activo";});
