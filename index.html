@@ -169,7 +169,28 @@ var DKEYS=["iq","cob","cst","ev","movs","cierres","aj","hist","subc","cfg"];
 
 function startDB(){
   DKEYS.forEach(function(k){
-    DB.ref(k).on("value",function(s){DATA[k]=s.exists()?s.val():{};render();});
+    DB.ref(k).on("value",function(s){
+      DATA[k]=s.exists()?s.val():{};
+      // Apply CF overrides from Firebase config
+      if(k==="cfg"){
+        oA(DATA.cfg).forEach(function(x){
+          if(x.tipo==="cf_override"){
+            if(x.activo===false){
+              // Remove from CF array
+              for(var i=CF.length-1;i>=0;i--){if(CF[i].id===x.cfid){CF.splice(i,1);break;}}
+            } else {
+              // Update in CF array
+              CF.forEach(function(c,i){if(c.id===x.cfid){CF[i]=Object.assign({},c,x);}});
+            }
+          }
+          if(x.tipo==="costo_extra"&&x.activo){
+            var already=CF.filter(function(c){return c.id===x._key;}).length;
+            if(!already) CF.push({id:x._key,d:x.desc,pv:x.pv,e:x.ed||"General",c:x.cat,ct:x.cta_num||"",dv:x.dv||15});
+          }
+        });
+      }
+      render();
+    });
   });
 }
 function stopDB(){DKEYS.forEach(function(k){DB.ref(k).off();});}
@@ -1015,9 +1036,13 @@ function renderCfgCostos(){
     var cc=CATC[cat]||"#64748B";
     o+="<div style='margin-bottom:6px'><div style='color:"+cc+";font-size:10px;font-weight:700;text-transform:uppercase;margin-bottom:3px'>"+cat+"</div>";
     grupos[cat].forEach(function(c){
-      o+="<div style='display:flex;justify-content:space-between;padding:3px 0;font-size:11px;border-bottom:1px solid #1E293B'>";
+      var cfki=kpush(c.id+"__cf");
+      o+="<div style='display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:11px;border-bottom:1px solid #1E293B'>";
       o+="<span>"+esc(c.d)+" <span style='color:#64748B;font-size:10px'>"+(c.ct?"Cta:"+c.ct:"")+"</span></span>";
-      o+="<span style='color:#64748B;font-size:10px'>"+c.e+"  Dia "+c.dv+"</span></div>";
+      o+="<div style='display:flex;gap:4px;align-items:center'><span style='color:#64748B;font-size:10px'>"+c.e+" Dia "+c.dv+"</span>";
+      o+="<button class='btn bw bsm' style='font-size:9px;padding:2px 6px' data-editcf='"+cfki+"'>Editar</button>";
+      o+="<button class='btn bx bsm' style='font-size:9px;padding:2px 6px' data-delcf='"+cfki+"'>Quitar</button>";
+      o+="</div></div>";
     });
     o+="</div>";
   });
@@ -1049,6 +1074,8 @@ function renderCfgCostos(){
     var ec=e.target.closest("[data-editcosto]"); if(ec)openEditCosto(kget(parseInt(ec.dataset.editcosto)));
     var tc=e.target.closest("[data-togglecosto]"); if(tc)toggleCosto(kget(parseInt(tc.dataset.togglecosto)));
     var dc=e.target.closest("[data-delcosto]"); if(dc)borrarCosto(kget(parseInt(dc.dataset.delcosto)));
+    var ecf=e.target.closest("[data-editcf]"); if(ecf)openEditCF(kget(parseInt(ecf.dataset.editcf)));
+    var dcf=e.target.closest("[data-delcf]"); if(dcf)quitarCF(kget(parseInt(dcf.dataset.delcf)));
   };
 }
 function openAddCosto(){
@@ -1187,11 +1214,11 @@ function borrarIngreso(key){
 function openAjusteCuat(){
   var iqA=oA(DATA.iq).filter(function(i){return i.estado==="activo";});
   if(!iqA.length){alert("No hay acuerdos activos");return;}
-  var hoy_mes=new Date().getMonth()+1; // 1-12
+  var hoy_mes=new Date().getMonth()+1;
   var prox=hoy_mes<4?"Abril":hoy_mes<8?"Agosto":hoy_mes<12?"Diciembre":"Abril";
-  var o="<p style='color:#94A3B8;font-size:12px;margin-bottom:4px'>Ajuste cuatrimestral — aplica en <b style='color:#8B5CF6'>"+prox+"</b> para TODOS los edificios.</p>";
-  o+="<p style='color:#64748B;font-size:11px;margin-bottom:12px'>Modifica el alquiler de cada unidad. El sistema enviara alertas 15 dias antes.</p>";
-  o+="<div style='overflow-x:auto'><table class='tbl'><thead><tr><th>Unidad</th><th>Inquilino</th><th>Actual</th><th>Nuevo $</th><th>Variacion</th></tr></thead><tbody id='aj-tbody'></tbody></table></div>";
+  var o="<p style='color:#94A3B8;font-size:12px;margin-bottom:4px'>Ajuste cuatrimestral (<b style='color:#8B5CF6'>"+prox+"</b>) — modificacion discrecional por inquilino.</p>";
+  o+="<p style='color:#64748B;font-size:11px;margin-bottom:10px'>Ingresa el nuevo valor para cada uno. Deja igual los que no cambian. El sistema enviara alertas WA 15 dias antes desde la seccion Alertas.</p>";
+  o+="<div style='overflow-x:auto'><table class='tbl'><thead><tr><th>Unidad</th><th>Inquilino</th><th>Alquiler actual</th><th>Nuevo valor $ (editable)</th><th>Diferencia</th></tr></thead><tbody id='aj-tbody'></tbody></table></div>";
   o+="<div style='display:flex;gap:8px;margin:10px 0;flex-wrap:wrap'>";
   o+="<div class='fld' style='margin:0;flex:1'><label class='lbl'>Aplicar % a todos</label><div style='display:flex;gap:5px'><input class='inp' type='number' id='aj-pct' placeholder='ej: 15' style='max-width:90px'/><button class='btn bg bsm' onclick='aplicarPct()'>Aplicar %</button></div></div>";
   o+="</div>";
@@ -1285,6 +1312,56 @@ function saveRenovar(key){
   }
   closeModal();closeModal();
   alert("Renovacion registrada."+( gs>0?" Gastos "+fmt(gs)+" en "+cuotas+" cuota"+(cuotas>1?"s":"")+".":" Sin gastos de gestion."));
+}
+
+
+// Edit/quitar built-in CF costs (stored as overrides in Firebase)
+var _cfOverrides = {}; // cached from DATA.cfg
+function openEditCF(cfid){
+  // cfid is like "cf01__cf" - extract real id
+  var id = typeof cfid === "string" ? cfid.replace("__cf","") : "";
+  var orig = CF.filter(function(c){return c.id===id;})[0];
+  if(!orig){alert("Costo no encontrado");return;}
+  // Check if there's already an override
+  var over = oA(DATA.cfg).filter(function(x){return x.tipo==="cf_override"&&x.cfid===id;})[0];
+  var current = over||orig;
+  var cats=["Electricidad","Gas","Agua","Impuestos","Sueldos","Tarjetas","Seguros","Administrativo","Salud","Personal","Vehiculos","Otro"];
+  var ki = kpush(id+"__editcf");
+  var o = fld("ecf-desc","Descripcion",current.d||current.desc||"")
+        + fld("ecf-prov","Proveedor",current.pv||current.prov||"")
+        + sld("ecf-cat","Categoria",cats,current.c||current.cat||"")
+        + fld("ecf-ed","Edificio",current.e||current.ed||"")
+        + fld("ecf-cta","Nro. cuenta",current.ct||current.cta_num||"")
+        + fld("ecf-dv","Dia vencimiento",current.dv||15,"number");
+  o += "<div style='display:flex;justify-content:flex-end;gap:7px;margin-top:12px'><button class='btn bg bsm' onclick='closeModal()'>Cancelar</button><button class='btn bok bsm' data-savecf='"+id+"'>Guardar</button></div>";
+  openModal("Editar: "+esc(orig.d),o,true);
+  var md=MODS[MODS.length-1];
+  md.onclick=function(e){
+    if(e.target.dataset.savecf)doEditCF(e.target.dataset.savecf);
+    else if(e.target.classList.contains("ov"))closeModal();
+  };
+}
+function doEditCF(cfid){
+  // Save override to Firebase
+  var over = oA(DATA.cfg).filter(function(x){return x.tipo==="cf_override"&&x.cfid===cfid;})[0];
+  var data = {tipo:"cf_override",cfid:cfid,d:G("ecf-desc").value,pv:G("ecf-prov").value,c:G("ecf-cat").value,e:G("ecf-ed").value,ct:G("ecf-cta").value,dv:Number(G("ecf-dv").value||15),activo:true};
+  if(over){DB.ref("cfg/"+over._key).update(data);}
+  else{DB.ref("cfg").push(data);}
+  // Also update in-memory CF array
+  CF.forEach(function(c,i){if(c.id===cfid){CF[i]=Object.assign({},c,data);}});
+  closeModal(); setTimeout(rConfig,300);
+}
+function quitarCF(cfid){
+  var id = typeof cfid === "string" ? cfid.replace("__cf","") : cfid;
+  var orig = CF.filter(function(c){return c.id===id;})[0];
+  if(!confirm("Quitar del sistema: "+(orig?orig.d:id)+"? No se borran registros historicos."))return;
+  // Save as inactive override
+  var over = oA(DATA.cfg).filter(function(x){return x.tipo==="cf_override"&&x.cfid===id;})[0];
+  if(over){DB.ref("cfg/"+over._key).update({activo:false});}
+  else{DB.ref("cfg").push({tipo:"cf_override",cfid:id,activo:false,d:orig?orig.d:id});}
+  // Remove from in-memory CF
+  for(var i=CF.length-1;i>=0;i--){if(CF[i].id===id){CF.splice(i,1);break;}}
+  setTimeout(rConfig,300);
 }
 
 
