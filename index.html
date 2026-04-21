@@ -164,8 +164,8 @@ function closeModal(){var d=MODS.pop();if(d)d.remove();}
 
 // State
 var USER=null,SEC="login";
-var DATA={iq:{},cob:{},cst:{},ev:{},movs:{},cierres:{},aj:{},hist:{},subc:{}};
-var DKEYS=["iq","cob","cst","ev","movs","cierres","aj","hist","subc"];
+var DATA={iq:{},cob:{},cst:{},ev:{},movs:{},cierres:{},aj:{},hist:{},subc:{},cfg:{}};
+var DKEYS=["iq","cob","cst","ev","movs","cierres","aj","hist","subc","cfg"];
 
 function startDB(){
   DKEYS.forEach(function(k){
@@ -177,7 +177,7 @@ function stopDB(){DKEYS.forEach(function(k){DB.ref(k).off();});}
 function render(){
   if(!USER){rLogin();return;}
   rShell();
-  var fn={panel:rPanel,alertas:rAlertas,acuerdos:rAcuerdos,historial:rHistorial,cobranzas:rCob,costos:rCostos,agenda:rAgenda,caja:rCaja,stats:rStats};
+  var fn={panel:rPanel,alertas:rAlertas,acuerdos:rAcuerdos,historial:rHistorial,cobranzas:rCob,costos:rCostos,agenda:rAgenda,caja:rCaja,stats:rStats,config:rConfig};
   if(fn[SEC])fn[SEC]();
 }
 function go(s){SEC=s;render();}
@@ -204,7 +204,7 @@ function rShell(){
   var m=mes(),al=oA(DATA.cob).filter(function(c){return c.mes===m&&c.estado!=="pagado";}).length;
   var totU=Object.values(ED).reduce(function(s,e){return s+e.u;},0);
   var act=oA(DATA.iq).filter(function(i){return i.estado==="activo";}).length;
-  var navA=[["panel","Panel"],["alertas","Alertas"],["acuerdos","Acuerdos"],["historial","Historial"],["cobranzas","Cobros"],["costos","Costos"],["agenda","Agenda"],["caja","Caja"],["stats","Stats"]];
+  var navA=[["panel","Panel"],["alertas","Alertas"],["acuerdos","Acuerdos"],["historial","Historial"],["cobranzas","Cobros"],["costos","Costos"],["agenda","Agenda"],["caja","Caja"],["stats","Stats"],["config","Config"]];
   var navE=[["alertas","Alertas"],["acuerdos","Acuerdos"],["cobranzas","Cobros"],["costos","Costos"],["agenda","Agenda"],["caja","Caja"]];
   var nav=esA?navA:navE;
   var nh=nav.map(function(n){
@@ -882,6 +882,411 @@ function rStats(){
   if(cieA.length){o+="<div class='card' style='overflow-x:auto'><h3 style='font-size:13px;font-weight:700;margin-bottom:8px'>Historial de Utilidades</h3><table class='tbl'><thead><tr><th>Mes</th><th>Ingresos</th><th>Egresos</th><th>Utilidad</th><th>USD</th></tr></thead><tbody>";cieA.sort(function(a,b){return(b.mes||"").localeCompare(a.mes||"");}).forEach(function(c){o+="<tr><td style='font-weight:600'>"+c.mes+"</td><td style='color:#10B981'>"+fmt(c.ingresos)+"</td><td style='color:#EF4444'>"+fmt(c.egresos)+"</td><td style='color:"+(c.utilidad>=0?"#10B981":"#EF4444")+";font-weight:700'>"+fmt(c.utilidad)+"</td><td style='color:#06B6D4'>"+(c.tc>0?fusd(c.utilidad,c.tc):"--")+"</td></tr>";});o+="</tbody></table></div>";}
   G("main").innerHTML=o;
 }
+
+// ── CONFIGURACION (solo Admin) ────────────────────────────────────────────────
+var _cfgTab = "propiedades"; // propiedades | costos | ingresos
+
+function rConfig(){
+  if(USER.r!=="admin"){G("main").innerHTML="<p style='color:#EF4444;padding:20px'>Solo el administrador puede acceder.</p>";return;}
+
+  var tabs = [["propiedades","Propiedades"],["costos","Costos"],["ingresos","Ingresos extras"]];
+  var o = "<h2 style='font-size:20px;font-weight:800;margin-bottom:12px'>Configuracion</h2>";
+  o += "<div style='display:flex;gap:4px;margin-bottom:14px;flex-wrap:wrap'>";
+  tabs.forEach(function(t){
+    var cls="btn bsm "+(_cfgTab===t[0]?"bp":"bg");
+    var btn=document.createElement("button");
+    btn.className=cls;
+    btn.textContent=t[1];
+    btn.dataset.tab=t[0];
+    o += "<button class='"+cls+"' data-cfgtab='"+t[0]+"'>"+t[1]+"</button>";
+  });
+  o += "</div><div id='cfg-body'></div>";
+  G("main").innerHTML = o;
+  G("main").addEventListener("click",function(e){var b=e.target.closest("[data-cfgtab]");if(b){_cfgTab=b.dataset.cfgtab;rConfig();}},true);
+
+  if(_cfgTab==="propiedades") renderCfgProp();
+  else if(_cfgTab==="costos") renderCfgCostos();
+  else if(_cfgTab==="ingresos") renderCfgIngresos();
+}
+
+// ── TAB PROPIEDADES ───────────────────────────────────────────────────────────
+function renderCfgProp(){
+  var el = G("cfg-body"); if(!el) return;
+  var custom = oA(DATA.cfg).filter(function(x){return x.tipo==="propiedad";});
+  var vendidas = oA(DATA.cfg).filter(function(x){return x.tipo==="vendida";});
+
+  var o = "<div class='card' style='margin-bottom:10px'>";
+  o += "<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:10px'>";
+  o += "<h3 style='font-size:13px;font-weight:700'>Edificios del sistema</h3></div>";
+  Object.keys(ED).forEach(function(cod){
+    var e=ED[cod];
+    var inq=oA(DATA.iq).filter(function(i){return i.estado==="activo"&&(i.unidad||"").startsWith(cod+"-");}).length;
+    o += "<div style='display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #334155;font-size:12px'>";
+    o += "<div><span style='color:"+COL[cod]+";font-weight:700'>"+cod+"</span>  "+esc(e.n)+"  <span style='color:#64748B;font-size:10px'>"+esc(e.d)+"  "+e.u+" unidades</span></div>";
+    o += "<span style='color:#10B981;font-size:11px'>"+inq+" ocupadas</span></div>";
+  });
+  o += "</div>";
+
+  if(custom.length){
+    o += "<div class='card' style='margin-bottom:10px'><h3 style='font-size:13px;font-weight:700;margin-bottom:8px'>Propiedades agregadas</h3>";
+    custom.forEach(function(p){
+      var ki=kpush(p._key);
+      o += "<div style='display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #334155;font-size:12px'>";
+      o += "<div><b>"+esc(p.codigo||"")+"</b>  "+esc(p.nombre)+"  <span style='color:#64748B;font-size:10px'>"+esc(p.dir||"")+"  "+( p.unidades||1)+" unid.</span></div>";
+      o += "<div style='display:flex;gap:4px'>";
+      o += "<button class='btn bw bsm' data-editprop='"+ki+"'>Editar</button>";
+      o += "<button class='btn bx bsm' data-venprop='"+ki+"'>Vender/Dar baja</button>";
+      o += "</div></div>";
+    });
+    o += "</div>";
+  }
+
+  if(vendidas.length){
+    o += "<div class='card' style='margin-bottom:10px'><h3 style='font-size:13px;font-weight:700;margin-bottom:8px;color:#64748B'>Propiedades vendidas / dadas de baja</h3>";
+    vendidas.forEach(function(p){
+      o += "<div style='display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #1E293B;font-size:11px;color:#64748B'>";
+      o += "<span>"+esc(p.nombre)+"</span><span>Baja: "+esc(p.fecha_baja||"--")+"</span></div>";
+    });
+    o += "</div>";
+  }
+
+  o += "<button class='btn bp' style='margin-top:4px' onclick='openAddProp()'>+ Agregar propiedad</button>";
+  el.innerHTML = o;
+  el.onclick = function(e){
+    var ep=e.target.closest("[data-editprop]"); if(ep)openEditProp(kget(parseInt(ep.dataset.editprop)));
+    var vp=e.target.closest("[data-venprop]"); if(vp)venderProp(kget(parseInt(vp.dataset.venprop)));
+  };
+}
+
+function openAddProp(){
+  var o = fld("ap-cod","Codigo (ej: R3, LP2)","")
+        + fld("ap-nom","Nombre / descripcion *","")
+        + fld("ap-dir","Direccion","")
+        + fld("ap-u","Cantidad de unidades","1","number")
+        + fld("ap-obs","Notas","");
+  o += "<div style='display:flex;justify-content:flex-end;gap:7px;margin-top:12px'><button class='btn bg bsm' onclick='closeModal()'>Cancelar</button><button class='btn bok bsm' onclick='saveProp()'>Agregar</button></div>";
+  openModal("Agregar Propiedad / Inmueble",o);
+}
+function saveProp(){
+  var cod=G("ap-cod").value, nom=G("ap-nom").value;
+  if(!nom){alert("El nombre es obligatorio");return;}
+  DB.ref("cfg").push({tipo:"propiedad",codigo:cod,nombre:nom,dir:G("ap-dir").value,unidades:Number(G("ap-u").value||1),obs:G("ap-obs").value,fecha_alta:hoy(),activo:true});
+  closeModal(); setTimeout(rConfig,300);
+}
+function openEditProp(key){
+  var p=DATA.cfg[key]; if(!p) return;
+  var ki=kpush(key);
+  var o = fld("ep-cod","Codigo",p.codigo||"")
+        + fld("ep-nom","Nombre *",p.nombre||"")
+        + fld("ep-dir","Direccion",p.dir||"")
+        + fld("ep-u","Unidades",p.unidades||1,"number")
+        + fld("ep-obs","Notas",p.obs||"");
+  o += "<div style='display:flex;justify-content:flex-end;gap:7px;margin-top:12px'><button class='btn bg bsm' onclick='closeModal()'>Cancelar</button><button class='btn bok bsm' data-saveedit='"+ki+"'>Guardar</button></div>";
+  openModal("Editar Propiedad",o);
+  var md=MODS[MODS.length-1];
+  md.onclick=function(e){if(e.target.dataset.saveedit)doEditProp(kget(parseInt(e.target.dataset.saveedit)));else if(e.target.classList.contains("ov"))closeModal();};
+}
+function doEditProp(key){
+  DB.ref("cfg/"+key).update({codigo:G("ep-cod").value,nombre:G("ep-nom").value,dir:G("ep-dir").value,unidades:Number(G("ep-u").value||1),obs:G("ep-obs").value});
+  closeModal(); setTimeout(rConfig,300);
+}
+function venderProp(key){
+  var p=DATA.cfg[key];
+  if(!confirm("Dar de baja / vender: "+p.nombre+"?")) return;
+  DB.ref("cfg/"+key).update({tipo:"vendida",fecha_baja:hoy(),activo:false});
+  setTimeout(rConfig,300);
+}
+
+// ── TAB COSTOS ────────────────────────────────────────────────────────────────
+function renderCfgCostos(){
+  var el=G("cfg-body"); if(!el) return;
+  var costosExtra=oA(DATA.cfg).filter(function(x){return x.tipo==="costo_extra";});
+  var cats=[]; CF.forEach(function(c){if(!cats.includes(c.c))cats.push(c.c);}); cats.push("Otro");
+
+  // Group builtin costs by category
+  var grupos={};
+  CF.forEach(function(c){if(!grupos[c.c])grupos[c.c]=[];grupos[c.c].push(c);});
+
+  var o="<div class='card' style='margin-bottom:10px'>";
+  o+="<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:8px'>";
+  o+="<h3 style='font-size:13px;font-weight:700'>Costos fijos del sistema ("+CF.length+" items)</h3></div>";
+  o+="<p style='color:#64748B;font-size:11px;margin-bottom:8px'>Estos costos se generan automaticamente cada mes. Para agregar o quitar servicios usa el boton de abajo.</p>";
+  Object.keys(grupos).forEach(function(cat){
+    var cc=CATC[cat]||"#64748B";
+    o+="<div style='margin-bottom:6px'><div style='color:"+cc+";font-size:10px;font-weight:700;text-transform:uppercase;margin-bottom:3px'>"+cat+"</div>";
+    grupos[cat].forEach(function(c){
+      o+="<div style='display:flex;justify-content:space-between;padding:3px 0;font-size:11px;border-bottom:1px solid #1E293B'>";
+      o+="<span>"+esc(c.d)+" <span style='color:#64748B;font-size:10px'>"+(c.ct?"Cta:"+c.ct:"")+"</span></span>";
+      o+="<span style='color:#64748B;font-size:10px'>"+c.e+"  Dia "+c.dv+"</span></div>";
+    });
+    o+="</div>";
+  });
+  o+="</div>";
+
+  // Custom costs
+  o+="<div class='card' style='margin-bottom:10px'>";
+  o+="<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:8px'>";
+  o+="<h3 style='font-size:13px;font-weight:700'>Costos variables (autos, nuevos servicios, etc.)</h3>";
+  o+="<button class='btn bp bsm' onclick='openAddCosto()'>+ Agregar</button></div>";
+  if(costosExtra.length){
+    costosExtra.forEach(function(c){
+      var ki=kpush(c._key);
+      o+="<div style='display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #334155;font-size:12px'>";
+      o+="<div><b style='color:"+(c.activo?"#F1F5F9":"#64748B")+"'>"+esc(c.desc)+"</b>  <span style='color:#64748B;font-size:10px'>"+esc(c.cat||"")+"  "+esc(c.ed||"General")+(c.cta_num?"  Cta:"+esc(c.cta_num):"")+"</span></div>";
+      o+="<div style='display:flex;gap:4px'>";
+      o+="<button class='btn bw bsm' data-editcosto='"+ki+"'>Editar</button>";
+      o+="<button class='btn "+(c.activo?"bg":"bok")+" bsm' data-togglecosto='"+ki+"'>"+(c.activo?"Desactivar":"Activar")+"</button>";
+      o+="<button class='btn bx bsm' data-delcosto='"+ki+"'>Borrar</button>";
+      o+="</div></div>";
+    });
+  } else {
+    o+="<p style='color:#64748B;font-size:12px'>Sin costos variables. Los fijos del sistema siguen activos.</p>";
+  }
+  o+="</div>";
+
+  el.innerHTML=o;
+  el.onclick=function(e){
+    var ec=e.target.closest("[data-editcosto]"); if(ec)openEditCosto(kget(parseInt(ec.dataset.editcosto)));
+    var tc=e.target.closest("[data-togglecosto]"); if(tc)toggleCosto(kget(parseInt(tc.dataset.togglecosto)));
+    var dc=e.target.closest("[data-delcosto]"); if(dc)borrarCosto(kget(parseInt(dc.dataset.delcosto)));
+  };
+}
+function openAddCosto(){
+  var cats=["Electricidad","Gas","Agua","Impuestos","Sueldos","Tarjetas","Seguros","Administrativo","Salud","Personal","Vehiculos","Otro"];
+  var o=fld("nc-desc","Descripcion *","")
+       +fld("nc-prov","Proveedor","")
+       +sld("nc-cat","Categoria",cats)
+       +fld("nc-ed","Edificio o General","General")
+       +fld("nc-cta","Nro. cuenta / contrato","")
+       +fld("nc-dv","Dia de vencimiento","15","number");
+  o+="<div style='display:flex;justify-content:flex-end;gap:7px;margin-top:12px'><button class='btn bg bsm' onclick='closeModal()'>Cancelar</button><button class='btn bok bsm' onclick='saveNuevoCosto()'>Agregar</button></div>";
+  openModal("Agregar Costo Variable",o,true);
+}
+function saveNuevoCosto(){
+  var desc=G("nc-desc").value; if(!desc){alert("La descripcion es obligatoria");return;}
+  var nuevo={tipo:"costo_extra",desc:desc,pv:G("nc-prov").value,cat:G("nc-cat").value,ed:G("nc-ed").value||"General",cta_num:G("nc-cta").value,dv:Number(G("nc-dv").value||15),activo:true,fecha_alta:hoy()};
+  DB.ref("cfg").push(nuevo);
+  // Add to CF so it appears in costos module
+  CF.push({id:"ce_"+Date.now(),d:desc,pv:nuevo.pv,e:nuevo.ed,c:nuevo.cat,ct:nuevo.cta_num,dv:nuevo.dv});
+  closeModal(); setTimeout(rConfig,300);
+}
+function openEditCosto(key){
+  var c=DATA.cfg[key]; if(!c) return;
+  var ki=kpush(key);
+  var cats=["Electricidad","Gas","Agua","Impuestos","Sueldos","Tarjetas","Seguros","Administrativo","Salud","Personal","Vehiculos","Otro"];
+  var o=fld("ece-desc","Descripcion *",c.desc||"")
+       +fld("ece-prov","Proveedor",c.pv||"")
+       +sld("ece-cat","Categoria",cats,c.cat)
+       +fld("ece-ed","Edificio o General",c.ed||"General")
+       +fld("ece-cta","Nro. cuenta / contrato",c.cta_num||"")
+       +fld("ece-dv","Dia de vencimiento",c.dv||15,"number");
+  o+="<div style='display:flex;justify-content:flex-end;gap:7px;margin-top:12px'><button class='btn bg bsm' onclick='closeModal()'>Cancelar</button><button class='btn bok bsm' data-savece='"+ki+"'>Guardar</button></div>";
+  openModal("Editar Costo",o,true);
+  var md=MODS[MODS.length-1];
+  md.onclick=function(e){if(e.target.dataset.savece)doEditCosto(kget(parseInt(e.target.dataset.savece)));else if(e.target.classList.contains("ov"))closeModal();};
+}
+function doEditCosto(key){
+  DB.ref("cfg/"+key).update({desc:G("ece-desc").value,pv:G("ece-prov").value,cat:G("ece-cat").value,ed:G("ece-ed").value||"General",cta_num:G("ece-cta").value,dv:Number(G("ece-dv").value||15)});
+  closeModal(); setTimeout(rConfig,300);
+}
+function toggleCosto(key){
+  var c=DATA.cfg[key];
+  DB.ref("cfg/"+key).update({activo:!c.activo});
+  setTimeout(rConfig,300);
+}
+function borrarCosto(key){
+  if(!confirm("Borrar este costo? No se borran registros historicos."))return;
+  DB.ref("cfg/"+key).remove();
+  setTimeout(rConfig,300);
+}
+
+// ── TAB INGRESOS EXTRAS ───────────────────────────────────────────────────────
+function renderCfgIngresos(){
+  var el=G("cfg-body"); if(!el) return;
+  var extras=oA(DATA.cfg).filter(function(x){return x.tipo==="ingreso_extra";});
+  var cieA=oA(DATA.cierres).sort(function(a,b){return(b.mes||"").localeCompare(a.mes||"");});
+
+  var o="<div class='card' style='margin-bottom:10px'>";
+  o+="<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:8px'>";
+  o+="<h3 style='font-size:13px;font-weight:700'>Rubros de ingreso adicionales</h3>";
+  o+="<button class='btn bp bsm' onclick='openAddIngreso()'>+ Agregar</button></div>";
+  o+="<p style='color:#64748B;font-size:11px;margin-bottom:8px'>Venta de propiedades, alquiler de cocheras, ingresos extraordinarios, etc.</p>";
+  if(extras.length){
+    extras.forEach(function(ing){
+      var ki=kpush(ing._key);
+      o+="<div style='display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #334155;font-size:12px'>";
+      o+="<div><b>"+esc(ing.nombre)+"</b>  <span style='color:#64748B;font-size:10px'>"+esc(ing.cat||"")+"  "+( ing.recurrente?"Recurrente":"Unico")+"</span></div>";
+      o+="<div style='display:flex;gap:4px'>";
+      o+="<button class='btn bw bsm' data-editing='"+ki+"'>Editar</button>";
+      o+="<button class='btn bx bsm' data-deling='"+ki+"'>Borrar</button>";
+      o+="</div></div>";
+    });
+  } else {
+    o+="<p style='color:#64748B;font-size:12px'>Sin rubros adicionales. Los alquileres se registran automaticamente en Cobranzas.</p>";
+  }
+  o+="</div>";
+
+  // Historial cierres
+  o+="<div class='card'>";
+  o+="<h3 style='font-size:13px;font-weight:700;margin-bottom:8px'>Historial de Cierres Mensuales</h3>";
+  if(cieA.length){
+    o+="<div style='overflow-x:auto'><table class='tbl'><thead><tr><th>Mes</th><th>Ingresos</th><th>Egresos</th><th>Utilidad $</th><th>USD</th><th>Cerrado por</th></tr></thead><tbody>";
+    cieA.forEach(function(c){
+      o+="<tr><td style='font-weight:600'>"+c.mes+"</td><td style='color:#10B981'>"+fmt(c.ingresos||0)+"</td><td style='color:#EF4444'>"+fmt(c.egresos||0)+"</td>";
+      o+="<td style='color:"+(c.utilidad>=0?"#10B981":"#EF4444")+";font-weight:700'>"+fmt(c.utilidad||0)+"</td>";
+      o+="<td style='color:#06B6D4'>"+(c.tc>0?fusd(c.utilidad,c.tc):"--")+"</td>";
+      o+="<td style='color:#64748B;font-size:10px'>"+esc(c.cerradoPor||"--")+" el "+esc(c.fecha||"--")+"</td></tr>";
+    });
+    o+="</tbody></table></div>";
+  } else {
+    o+="<p style='color:#64748B;font-size:12px'>Sin cierres. El cierre mensual se hace desde Caja.</p>";
+  }
+  o+="</div>";
+
+  el.innerHTML=o;
+  el.onclick=function(e){
+    var ei=e.target.closest("[data-editing]"); if(ei)openEditIngreso(kget(parseInt(ei.dataset.editing)));
+    var di=e.target.closest("[data-deling]"); if(di)borrarIngreso(kget(parseInt(di.dataset.deling)));
+  };
+}
+function openAddIngreso(){
+  var cats=["Venta propiedad","Alquiler cochera","Alquiler comercial","Ingreso extraordinario","Reintegro","Otro"];
+  var o=fld("ni-nom","Nombre del rubro *","")
+       +sld("ni-cat","Categoria",cats)
+       +fld("ni-obs","Descripcion","");
+  o+="<div class='fld'><label class='lbl'>Tipo</label><div style='display:flex;gap:8px;margin-top:4px'><label style='display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px'><input type='radio' name='ni-rec' id='ni-unico' checked> Ingreso unico</label><label style='display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px'><input type='radio' name='ni-rec' id='ni-rec'> Recurrente mensual</label></div></div>";
+  o+="<div style='display:flex;justify-content:flex-end;gap:7px;margin-top:12px'><button class='btn bg bsm' onclick='closeModal()'>Cancelar</button><button class='btn bok bsm' onclick='saveIngreso()'>Agregar</button></div>";
+  openModal("Agregar Rubro de Ingreso",o,true);
+}
+function saveIngreso(){
+  var nom=G("ni-nom").value; if(!nom){alert("El nombre es obligatorio");return;}
+  DB.ref("cfg").push({tipo:"ingreso_extra",nombre:nom,cat:G("ni-cat").value,obs:G("ni-obs").value,recurrente:G("ni-rec").checked,fecha_alta:hoy(),activo:true});
+  closeModal(); setTimeout(rConfig,300);
+}
+function openEditIngreso(key){
+  var ing=DATA.cfg[key]; if(!ing) return;
+  var ki=kpush(key);
+  var cats=["Venta propiedad","Alquiler cochera","Alquiler comercial","Ingreso extraordinario","Reintegro","Otro"];
+  var o=fld("ei-nom","Nombre *",ing.nombre||"")+sld("ei-cat","Categoria",cats,ing.cat)+fld("ei-obs","Descripcion",ing.obs||"");
+  o+="<div style='display:flex;justify-content:flex-end;gap:7px;margin-top:12px'><button class='btn bg bsm' onclick='closeModal()'>Cancelar</button><button class='btn bok bsm' data-saveei='"+ki+"'>Guardar</button></div>";
+  openModal("Editar Rubro",o,true);
+  var md=MODS[MODS.length-1];
+  md.onclick=function(e){if(e.target.dataset.saveei)doEditIngreso(kget(parseInt(e.target.dataset.saveei)));else if(e.target.classList.contains("ov"))closeModal();};
+}
+function doEditIngreso(key){
+  DB.ref("cfg/"+key).update({nombre:G("ei-nom").value,cat:G("ei-cat").value,obs:G("ei-obs").value});
+  closeModal(); setTimeout(rConfig,300);
+}
+function borrarIngreso(key){
+  if(!confirm("Borrar este rubro?"))return;
+  DB.ref("cfg/"+key).remove();
+  setTimeout(rConfig,300);
+}
+
+// ── AJUSTE CUATRIMESTRAL (Abril, Agosto, Diciembre) ──────────────────────────
+function openAjusteCuat(){
+  var iqA=oA(DATA.iq).filter(function(i){return i.estado==="activo";});
+  if(!iqA.length){alert("No hay acuerdos activos");return;}
+  var hoy_mes=new Date().getMonth()+1; // 1-12
+  var prox=hoy_mes<4?"Abril":hoy_mes<8?"Agosto":hoy_mes<12?"Diciembre":"Abril";
+  var o="<p style='color:#94A3B8;font-size:12px;margin-bottom:4px'>Ajuste cuatrimestral — aplica en <b style='color:#8B5CF6'>"+prox+"</b> para TODOS los edificios.</p>";
+  o+="<p style='color:#64748B;font-size:11px;margin-bottom:12px'>Modifica el alquiler de cada unidad. El sistema enviara alertas 15 dias antes.</p>";
+  o+="<div style='overflow-x:auto'><table class='tbl'><thead><tr><th>Unidad</th><th>Inquilino</th><th>Actual</th><th>Nuevo $</th><th>Variacion</th></tr></thead><tbody id='aj-tbody'></tbody></table></div>";
+  o+="<div style='display:flex;gap:8px;margin:10px 0;flex-wrap:wrap'>";
+  o+="<div class='fld' style='margin:0;flex:1'><label class='lbl'>Aplicar % a todos</label><div style='display:flex;gap:5px'><input class='inp' type='number' id='aj-pct' placeholder='ej: 15' style='max-width:90px'/><button class='btn bg bsm' onclick='aplicarPct()'>Aplicar %</button></div></div>";
+  o+="</div>";
+  o+="<div style='display:flex;justify-content:flex-end;gap:7px;margin-top:12px'><button class='btn bg bsm' onclick='closeModal()'>Cancelar</button><button class='btn bok bsm' onclick='saveAjusteCuat()'>Guardar Ajuste</button></div>";
+  openModal("Ajuste Cuatrimestral",o,true);
+  // Populate table
+  setTimeout(function(){
+    var tbody=G("aj-tbody"); if(!tbody) return;
+    iqA.sort(function(a,b){return a.unidad.localeCompare(b.unidad);}).forEach(function(i){
+      var tr=document.createElement("tr");
+      tr.innerHTML="<td style='font-weight:600'>"+i.unidad+"</td><td style='font-size:11px'>"+esc(i.nombre.split(",")[0])+"</td><td style='color:#10B981'>"+fmt(i.alquiler)+"</td><td><input class='inp' type='number' id='ajv-"+i._key+"' value='"+i.alquiler+"' style='padding:4px 8px;font-size:12px'/></td><td id='ajd-"+i._key+"' style='color:#94A3B8;font-size:11px'>--</td>";
+      tbody.appendChild(tr);
+      G("ajv-"+i._key).oninput=function(){
+        var nuevo=Number(this.value||0);
+        var dif=nuevo-i.alquiler;
+        var pct=i.alquiler>0?Math.round((dif/i.alquiler)*100):0;
+        var el=G("ajd-"+i._key);
+        if(el)el.innerHTML="<span style='color:"+(dif>0?"#10B981":dif<0?"#EF4444":"#64748B")+"'>"+(dif>0?"+":"")+fmt(dif)+" ("+pct+"%)</span>";
+      };
+    });
+    window._iqAjuste=iqA;
+  },50);
+}
+window.aplicarPct=function(){
+  var pct=Number(G("aj-pct").value||0); if(!pct) return;
+  (window._iqAjuste||[]).forEach(function(i){
+    var inp=G("ajv-"+i._key); if(!inp) return;
+    var nuevo=Math.round(i.alquiler*(1+pct/100));
+    inp.value=nuevo;
+    inp.dispatchEvent(new Event("input"));
+  });
+};
+function saveAjusteCuat(){
+  var iqA=oA(DATA.iq).filter(function(i){return i.estado==="activo";});
+  var cambios=0;
+  iqA.forEach(function(i){
+    var inp=G("ajv-"+i._key); if(!inp) return;
+    var nuevo=Number(inp.value||0);
+    if(nuevo>0&&nuevo!==i.alquiler){
+      DB.ref("iq/"+i._key).update({alquiler:nuevo,nuevo_alq:nuevo});
+      cambios++;
+    }
+  });
+  closeModal();
+  alert("Ajuste guardado en "+cambios+" unidades. Desde Alertas podes enviar el aviso a cada inquilino 15 dias antes.");
+}
+
+// ── RENOVACION ────────────────────────────────────────────────────────────────
+function openRenovar(key){
+  var i=DATA.iq[key]; if(!i) return;
+  var ki=kpush(key);
+  var o="<div class='card' style='margin-bottom:10px;background:#0F172A'>";
+  o+="<div style='font-size:12px;color:#94A3B8;margin-bottom:4px'>"+i.unidad+" — "+esc(i.nombre)+"</div>";
+  o+="<div style='font-size:12px'>Alquiler actual: <b style='color:#10B981'>"+fmt(i.alquiler)+"</b>  |  Deposito (no se actualiza): <b>"+fmt(i.deposito||0)+"</b></div>";
+  o+="</div>";
+  o+="<div class='g2'>";
+  o+=fld("rv-alq","Nuevo alquiler $",i.alquiler,"number");
+  o+=fld("rv-gs","Gastos de gestion y mant. $","","number");
+  o+="</div>";
+  o+=sld("rv-cuotas","Gastos en cuotas",["1 cuota (contado)","2 cuotas"]);
+  o+="<div class='g2'>";
+  o+=fld("rv-ing","Nuevo inicio","","date");
+  o+=fld("rv-egr","Nuevo fin (12 meses)","","date");
+  o+="</div>";
+  o+="<div class='wbx' style='margin-top:8px'>El deposito original de "+fmt(i.deposito||0)+" se mantiene sin actualizacion.</div>";
+  o+="<div style='display:flex;justify-content:flex-end;gap:7px;margin-top:12px'><button class='btn bg bsm' onclick='closeModal()'>Cancelar</button><button class='btn bok bsm' data-rv='"+ki+"'>Confirmar Renovacion</button></div>";
+  openModal("Renovar Acuerdo — "+esc(i.unidad),o);
+  var md=MODS[MODS.length-1];
+  md.onclick=function(e){if(e.target.dataset.rv)saveRenovar(kget(parseInt(e.target.dataset.rv)));else if(e.target.classList.contains("ov"))closeModal();};
+}
+function saveRenovar(key){
+  var i=DATA.iq[key];
+  var alq=Number(G("rv-alq").value||0);
+  var gs=Number(G("rv-gs").value||0);
+  var cuotas=G("rv-cuotas").value.includes("2")?2:1;
+  var ing=G("rv-ing").value;
+  var egr=G("rv-egr").value;
+  if(!alq){alert("El alquiler es obligatorio");return;}
+  // Update inquilino - keep deposito unchanged
+  DB.ref("iq/"+key).update({alquiler:alq,ingreso:ing||i.ingreso,egreso:egr||i.egreso,ultimo_aj:ing||hoy()});
+  // Register gastos as cobranza entries
+  if(gs>0){
+    var montoCuota=Math.round(gs/cuotas);
+    var yr=parseInt(mes().split("-")[0]),mo=parseInt(mes().split("-")[1]);
+    for(var c=0;c<cuotas;c++){
+      var moc=mo+c; var yrc=yr;
+      if(moc>12){moc=moc-12;yrc++;}
+      var mesC=yrc+"-"+String(moc).padStart(2,"0");
+      DB.ref("cob").push({id_ac:i.id_ac||"",unidad:i.unidad,inq:i.nombre,mes:mesC,monto_total:montoCuota,sal_ant:0,estado:"pendiente",pagos:{},concepto:"Gastos renovacion cuota "+(c+1)+"/"+cuotas});
+    }
+  }
+  closeModal();closeModal();
+  alert("Renovacion registrada."+( gs>0?" Gastos "+fmt(gs)+" en "+cuotas+" cuota"+(cuotas>1?"s":"")+".":" Sin gastos de gestion."));
+}
+
 
 render();
 </script>
