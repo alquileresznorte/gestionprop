@@ -214,7 +214,7 @@ function getCF(){
     }
   });
   // Add custom costs (costo_extra) - deduplicated by _key
-  var extras = oA(DATA.cfg).filter(function(x){return x.tipo==="costo_extra"&&x.activo!==false;});
+  var extras = oA(DATA.cfg).filter(function(x){return (x.tipo==="otro_gasto"||x.tipo==="costo_extra")&&x.activo!==false;});
   extras.forEach(function(x){
     var already = result.filter(function(c){return c.id===x._key;}).length;
     if(!already) result.push({id:x._key,d:x.desc,pv:x.pv||"",e:x.ed||"General",c:x.cat||"Otro",ct:x.cta_num||"",dv:x.dv||15});
@@ -311,7 +311,8 @@ function rPanel(){
     i._anivDate=anivDate.toISOString().split("T")[0];
     return d>=0&&d<=30;
   });
-  var proxA=iqA.filter(function(i){if(i.estado!=="activo"||!i.ultimo_aj)return false;var ua=new Date(i.ultimo_aj),pr=new Date(ua);pr.setMonth(pr.getMonth()+4);var d=Math.round((pr-h)/86400000);return d>=0&&d<=15;});
+  // proxA: contracts ending in 15-60 days (warning earlier than proxV)
+  var proxA=iqA.filter(function(i){if(i.estado!=="activo"||!i.egreso)return false;var d=Math.round((new Date(i.egreso)-h)/86400000);return d>15&&d<=60;});
   var o="<h2 style='font-size:20px;font-weight:800;margin-bottom:4px'>Panel General</h2><p style='color:#64748B;font-size:11px;margin-bottom:12px'>"+new Date().toLocaleDateString("es-AR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})+"</p>";
   o+="<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-bottom:14px'>";
   o+=sc("GP","Ocupacion",(totU?Math.round((act/totU)*100):0)+"%",act+"/"+totU,"");
@@ -320,9 +321,9 @@ function rPanel(){
   o+=sc("C","Hoy",evH,"eventos","#06B6D4");
   o+="</div>";
   if(proxV.length){o+="<div class='card' style='margin-bottom:8px;border-left:3px solid #F59E0B'><h3 style='font-size:13px;color:#F59E0B;margin-bottom:8px'>Vencimientos proximos</h3>";proxV.forEach(function(i){var d=Math.round((new Date(i.egreso)-h)/86400000);o+="<div style='display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #334155;font-size:12px'><span>"+i.unidad+" - "+esc(i.nombre)+"</span><span style='color:#F59E0B;font-weight:700'>"+d+" dias</span></div>";});o+="</div>";}
-  if(proxA.length){o+="<div class='card' style='margin-bottom:8px;border-left:3px solid #8B5CF6'><h3 style='font-size:13px;color:#8B5CF6;margin-bottom:8px'>Ajustes cuatrimestrales proximos</h3>";proxA.forEach(function(i){var ua=new Date(i.ultimo_aj),pr=new Date(ua);pr.setMonth(pr.getMonth()+4);var d=Math.round((pr-h)/86400000);o+="<div style='display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #334155;font-size:12px'><span>"+i.unidad+" - "+esc(i.nombre)+"</span><span style='color:#8B5CF6;font-weight:700'>"+d+" dias</span></div>";});o+="</div>";}
+  if(proxA.length){o+="<div class='card' style='margin-bottom:8px;border-left:3px solid #8B5CF6'><h3 style='font-size:13px;color:#8B5CF6;margin-bottom:8px'>Renovacion / Fin de contrato proximos (15 dias)</h3>";proxA.forEach(function(i){var d=Math.round((new Date(i.egreso)-h)/86400000);o+="<div style='display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #334155;font-size:12px'><span>"+i.unidad+" - "+esc(i.nombre)+"</span><span style='color:#8B5CF6;font-weight:700'>Vence en "+d+" dia"+(d!==1?"s":"")+"</span></div>";});o+="</div>";}
   if(proxAniv.length){
-    o+="<div class='card' style='margin-bottom:8px;border-left:3px solid #10B981'><h3 style='font-size:13px;color:#10B981;margin-bottom:8px'>🎂 Aniversario de contrato (proximos 30 dias)</h3>";
+    o+="<div class='card' style='margin-bottom:8px;border-left:3px solid #10B981'><h3 style='font-size:13px;color:#10B981;margin-bottom:8px'>🔄 Vencimiento / Renovacion (proximos 30 dias)</h3>";
     proxAniv.sort(function(a,b){return a._diasAniv-b._diasAniv;}).forEach(function(i){
       o+="<div style='display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #334155;font-size:12px'>";
       o+="<span>"+i.unidad+" - "+esc(i.nombre)+"</span>";
@@ -1097,7 +1098,7 @@ function venderProp(key){
 // ── TAB COSTOS ────────────────────────────────────────────────────────────────
 function renderCfgCostos(){
   var el=G("cfg-body"); if(!el) return;
-  var costosExtra=oA(DATA.cfg).filter(function(x){return x.tipo==="costo_extra";});
+  var costosExtra=oA(DATA.cfg).filter(function(x){return x.tipo==="otro_gasto"||x.tipo==="costo_extra";});
   var cfActual=getCF();
   var cats=[]; cfActual.forEach(function(c){if(!cats.includes(c.c))cats.push(c.c);}); cats.push("Otro");
 
@@ -1164,11 +1165,11 @@ function openAddCosto(){
        +fld("nc-cta","Nro. cuenta / contrato","")
        +fld("nc-dv","Dia de vencimiento","15","number");
   o+="<div style='display:flex;justify-content:flex-end;gap:7px;margin-top:12px'><button class='btn bg bsm' onclick='closeModal()'>Cancelar</button><button class='btn bok bsm' onclick='saveNuevoCosto()'>Agregar</button></div>";
-  openModal("Agregar Costo Variable",o,true);
+  openModal("Agregar Otro Gasto",o,true);
 }
 function saveNuevoCosto(){
   var desc=G("nc-desc").value; if(!desc){alert("La descripcion es obligatoria");return;}
-  var nuevo={tipo:"costo_extra",desc:desc,pv:G("nc-prov").value,cat:G("nc-cat").value,ed:G("nc-ed").value||"General",cta_num:G("nc-cta").value,dv:Number(G("nc-dv").value||15),activo:true,fecha_alta:hoy()};
+  var nuevo={tipo:"otro_gasto",desc:desc,pv:G("nc-prov").value,cat:G("nc-cat").value,ed:G("nc-ed").value||"General",cta_num:G("nc-cta").value,dv:Number(G("nc-dv").value||15),activo:true,fecha_alta:hoy()};
   DB.ref("cfg").push(nuevo);
   // Add to CF so it appears in costos module
   CF.push({id:"ce_"+Date.now(),d:desc,pv:nuevo.pv,e:nuevo.ed,c:nuevo.cat,ct:nuevo.cta_num,dv:nuevo.dv});
@@ -1199,7 +1200,7 @@ function toggleCosto(key){
   setTimeout(rConfig,300);
 }
 function borrarCosto(key){
-  if(!confirm("Borrar este costo? No se borran registros historicos."))return;
+  if(!confirm("Borrar este gasto? No se borran registros historicos."))return;
   DB.ref("cfg/"+key).remove();
   setTimeout(rConfig,300);
 }
