@@ -70,57 +70,81 @@ var CTAS=["Efectivo","Bco Loli","Bco Hugo","MP Loli","MP Hugo"];
 var CTAP=["Cuenta Loli","Cuenta Hugo"];
 var CATC={Tarjetas:"#8B5CF6",Sueldos:"#10B981",Impuestos:"#EF4444",Electricidad:"#F59E0B",Gas:"#F97316",Agua:"#06B6D4",Administrativo:"#64748B",Salud:"#EC4899",Personal:"#84CC16",Seguros:"#14B8A6"};
 var CF=[
-  {id:"cf01",d:"ML Master Loli",pv:"Mastercard",e:"General",c:"Tarjetas",ct:"",dv:10},
-  {id:"cf02",d:"Visa Frances Loli",pv:"Visa",e:"General",c:"Tarjetas",ct:"",dv:10},
-  {id:"cf03",d:"Master Frances Loli",pv:"Mastercard",e:"General",c:"Tarjetas",ct:"",dv:10},
-  {id:"cf04",d:"Visa Frances Hugo",pv:"Visa",e:"General",c:"Tarjetas",ct:"",dv:10},
-  {id:"cf05",d:"Master Frances Hugo",pv:"Mastercard",e:"General",c:"Tarjetas",ct:"",dv:10},
-  {id:"cf06",d:"Mi Master Hugo",pv:"Mastercard",e:"General",c:"Tarjetas",ct:"",dv:10},
-  {id:"cf07",d:"Galicia Visa Hugo",pv:"Visa",e:"General",c:"Tarjetas",ct:"",dv:10},
-  {id:"cf08",d:"Mantenimiento",pv:"Personal",e:"General",c:"Sueldos",ct:"",dv:5},
-  {id:"cf09",d:"Administrativo",pv:"Personal",e:"General",c:"Sueldos",ct:"",dv:5},
-  {id:"cf10",d:"Limpieza casa",pv:"Personal",e:"General",c:"Sueldos",ct:"",dv:5},
-  {id:"cf11",d:"Vep mantenimiento",pv:"AFIP",e:"General",c:"Impuestos",ct:"",dv:20},
-  {id:"cf12",d:"Patente Corolla",pv:"ARBA",e:"General",c:"Impuestos",ct:"Ar-468SP",dv:15},
-  {id:"cf13",d:"Contador Hugo",pv:"Contador",e:"General",c:"Administrativo",ct:"",dv:10},
-  {id:"cf14",d:"Contador Loli",pv:"Contador",e:"General",c:"Administrativo",ct:"",dv:10},
-  {id:"cf15",d:"Swiss Medical",pv:"Swiss Medical",e:"General",c:"Salud",ct:"",dv:10},
-  {id:"cf16",d:"Galeno",pv:"Galeno",e:"General",c:"Salud",ct:"",dv:10},
-  {id:"cf17",d:"Cursos y Gym",pv:"Varios",e:"General",c:"Personal",ct:"",dv:10},
-  {id:"cf39",d:"EDENOR SC",pv:"EDENOR",e:"SC",c:"Electricidad",ct:"1675713877",dv:15},
-  {id:"cf40",d:"EDENOR RC Panama",pv:"EDENOR",e:"RC",c:"Electricidad",ct:"6172449133",dv:15},
-  {id:"cf41",d:"EDENOR RC",pv:"EDENOR",e:"RC",c:"Electricidad",ct:"2755864187",dv:15},
-  {id:"cf42",d:"EDENOR R1",pv:"EDENOR",e:"R1",c:"Electricidad",ct:"174064S437",dv:15},
-  {id:"cf43",d:"EDENOR R2",pv:"EDENOR",e:"R2",c:"Electricidad",ct:"6914278698",dv:15},
-  {id:"cf44",d:"EDENOR BN",pv:"EDENOR",e:"BN",c:"Electricidad",ct:"1441920426",dv:15},
-  {id:"cf45",d:"EDENOR White",pv:"EDENOR",e:"WT",c:"Electricidad",ct:"3348321514",dv:15},
-  {id:"cf48",d:"Gas White",pv:"MetroGas",e:"WT",c:"Gas",ct:"416100/3",dv:15},
-  {id:"cf49",d:"Gas R1",pv:"MetroGas",e:"R1",c:"Gas",ct:"1564731/6",dv:15},
-  {id:"cf50",d:"Gas BN",pv:"MetroGas",e:"BN",c:"Gas",ct:"7531702/7",dv:15},
-  {id:"cf51",d:"Gas SC",pv:"MetroGas",e:"SC",c:"Gas",ct:"816834/9",dv:15},
-  {id:"cf53",d:"AySA White",pv:"AySA",e:"WT",c:"Agua",ct:"2239047",dv:15},
-  {id:"cf54",d:"AySA Panama",pv:"AySA",e:"RC",c:"Agua",ct:"2250480",dv:15},
-  {id:"cf55",d:"AySA Belgrano",pv:"AySA",e:"BN",c:"Agua",ct:"2007659",dv:15},
-  {id:"cf56",d:"AySA R2",pv:"AySA",e:"R2",c:"Agua",ct:"2250861",dv:15},
-  {id:"cf57",d:"AySA R1",pv:"AySA",e:"R1",c:"Agua",ct:"2242016",dv:15},
-  {id:"cf59",d:"Municipal White",pv:"Municipalidad",e:"WT",c:"Impuestos",ct:"530783",dv:15},
-  {id:"cf60",d:"Municipal Belgrano",pv:"Municipalidad",e:"BN",c:"Impuestos",ct:"551919",dv:15},
-  {id:"cf61",d:"Municipal Panama",pv:"Municipalidad",e:"RC",c:"Impuestos",ct:"650840",dv:15},
-  {id:"cf62",d:"Municipal R2",pv:"Municipalidad",e:"R2",c:"Impuestos",ct:"533175",dv:15},
-  {id:"cf63",d:"Municipal R1",pv:"Municipalidad",e:"R1",c:"Impuestos",ct:"530353",dv:15},
-  {id:"cf65",d:"Municipal SC",pv:"Municipalidad",e:"SC",c:"Impuestos",ct:"90699",dv:15},
-  {id:"cf67",d:"ARBA SC",pv:"ARBA",e:"SC",c:"Impuestos",ct:"017-090699-5",dv:15},
-  {id:"cf68",d:"ARBA White",pv:"ARBA",e:"WT",c:"Impuestos",ct:"110-060375-2",dv:15},
-  {id:"cf69",d:"ARBA R1",pv:"ARBA",e:"R1",c:"Impuestos",ct:"110-102484-5",dv:15},
-  {id:"cf70",d:"ARBA R2",pv:"ARBA",e:"R2",c:"Impuestos",ct:"110-060840-1",dv:15},
-  {id:"cf71",d:"ARBA Panama",pv:"ARBA",e:"RC",c:"Impuestos",ct:"110-025743-9",dv:15},
-  {id:"cf72",d:"ARBA Belgrano",pv:"ARBA",e:"BN",c:"Impuestos",ct:"110-004324-2",dv:15},
-  {id:"cf74",d:"Sellos Hugo",pv:"AGIP",e:"General",c:"Impuestos",ct:"",dv:20},
-  {id:"cf75",d:"Sellos Loli",pv:"AGIP",e:"General",c:"Impuestos",ct:"",dv:20},
-  {id:"cf76",d:"ARBA IIBB Hugo",pv:"ARBA",e:"General",c:"Impuestos",ct:"",dv:20},
-  {id:"cf77",d:"ARBA IIBB Loli",pv:"ARBA",e:"General",c:"Impuestos",ct:"",dv:20},
-  {id:"cf80",d:"Complementario Loli",pv:"Seguro",e:"General",c:"Seguros",ct:"",dv:20},
-  {id:"cf81",d:"Complementario Hugo",pv:"Seguro",e:"General",c:"Seguros",ct:"",dv:20}
+  // SUELDOS / PERSONAL
+  {id:"cf01",d:"Mantenimiento",pv:"Personal",e:"General",c:"Sueldos",ct:"",dv:5},
+  {id:"cf02",d:"Administrativo",pv:"Personal",e:"General",c:"Sueldos",ct:"",dv:5},
+  {id:"cf03",d:"Patente Corolla",pv:"ARBA",e:"General",c:"Impuestos",ct:"AF468SP",dv:15},
+  {id:"cf04",d:"Patente Ranger",pv:"ARBA",e:"General",c:"Impuestos",ct:"ag394lj",dv:15},
+  // CONTADORES
+  {id:"cf05",d:"Contador Hugo",pv:"Contador",e:"General",c:"Administrativo",ct:"",dv:10},
+  {id:"cf06",d:"Contador Loli",pv:"Contador",e:"General",c:"Administrativo",ct:"",dv:10},
+  // SALUD
+  {id:"cf07",d:"Swiss Medical",pv:"Swiss Medical",e:"General",c:"Salud",ct:"",dv:10},
+  {id:"cf08",d:"Galeno",pv:"Galeno",e:"General",c:"Salud",ct:"",dv:10},
+  // ARBA Los Pilares
+  {id:"cf09",d:"ARBA Los Pilares",pv:"ARBA",e:"LP",c:"Impuestos",ct:"084-185249",dv:15},
+  // WIFI / CABLE
+  {id:"cf10",d:"BN WiFi",pv:"",e:"BN",c:"Internet",ct:"81004004181100-8",dv:17},
+  {id:"cf11",d:"BN Cable",pv:"",e:"BN",c:"Cable",ct:"81004004181100-9",dv:17},
+  {id:"cf12",d:"R1 Cable",pv:"",e:"R1",c:"Cable",ct:"81004004181100-6",dv:17},
+  {id:"cf13",d:"R1 WiFi",pv:"",e:"R1",c:"Internet",ct:"81004004181100-2",dv:17},
+  {id:"cf14",d:"R2 Cable",pv:"",e:"R2",c:"Cable",ct:"81004004181100-3",dv:17},
+  {id:"cf15",d:"R2 WiFi",pv:"",e:"R2",c:"Internet",ct:"81004004181100-4",dv:17},
+  {id:"cf16",d:"R2 Cable wifi",pv:"",e:"R2",c:"Cable",ct:"81004004181100-7",dv:17},
+  {id:"cf17",d:"WT Cable wifi",pv:"",e:"WT",c:"Cable",ct:"81004004181100-0",dv:17},
+  {id:"cf18",d:"SC Cable wifi",pv:"",e:"SC",c:"Cable",ct:"81004004181100-5",dv:17},
+  {id:"cf19",d:"LT personal y flow",pv:"",e:"LT",c:"Cable",ct:"100304739771000-5",dv:17},
+  // EDENOR
+  {id:"cf20",d:"EDENOR SC",pv:"EDENOR",e:"SC",c:"Electricidad",ct:"1675713877",dv:15},
+  {id:"cf21",d:"EDENOR RC Panama",pv:"EDENOR",e:"RC",c:"Electricidad",ct:"6122449133",dv:15},
+  {id:"cf22",d:"EDENOR RC",pv:"EDENOR",e:"RC",c:"Electricidad",ct:"2753864187",dv:15},
+  {id:"cf23",d:"EDENOR R1",pv:"EDENOR",e:"R1",c:"Electricidad",ct:"174064S437",dv:15},
+  {id:"cf24",d:"EDENOR R2",pv:"EDENOR",e:"R2",c:"Electricidad",ct:"6914278698",dv:15},
+  {id:"cf25",d:"EDENOR BN",pv:"EDENOR",e:"BN",c:"Electricidad",ct:"1441920426",dv:15},
+  {id:"cf26",d:"EDENOR 1 WT",pv:"EDENOR",e:"WT",c:"Electricidad",ct:"3348321514",dv:15},
+  {id:"cf27",d:"EDENOR 2 WT Galpon",pv:"EDENOR",e:"WT",c:"Electricidad",ct:"2192938133",dv:15},
+  {id:"cf28",d:"EDENOR LT",pv:"EDENOR",e:"LT",c:"Electricidad",ct:"7616030669",dv:15},
+  // GAS (Naturgy)
+  {id:"cf29",d:"Naturgy WT",pv:"Naturgy",e:"WT",c:"Gas",ct:"416100/3",dv:15},
+  {id:"cf30",d:"Naturgy R1",pv:"Naturgy",e:"R1",c:"Gas",ct:"1564731/6",dv:15},
+  {id:"cf31",d:"Naturgy BN",pv:"Naturgy",e:"BN",c:"Gas",ct:"7531702/7",dv:15},
+  {id:"cf32",d:"Naturgy SC",pv:"Naturgy",e:"SC",c:"Gas",ct:"816834/9",dv:15},
+  {id:"cf33",d:"Naturgy LT",pv:"Naturgy",e:"LT",c:"Gas",ct:"",dv:15},
+  // AySA
+  {id:"cf34",d:"AySA RC",pv:"AySA",e:"RC",c:"Agua",ct:"2250480",dv:15},
+  {id:"cf35",d:"AySA BN",pv:"AySA",e:"BN",c:"Agua",ct:"2007659",dv:15},
+  {id:"cf36",d:"AySA R2",pv:"AySA",e:"R2",c:"Agua",ct:"2250861",dv:15},
+  {id:"cf37",d:"AySA R1",pv:"AySA",e:"R1",c:"Agua",ct:"2242016",dv:15},
+  {id:"cf38",d:"AySA SC",pv:"AySA",e:"SC",c:"Agua",ct:"320245",dv:15},
+  {id:"cf39",d:"AySA Personal LT",pv:"AySA",e:"LT",c:"Agua",ct:"",dv:15},
+  // MUNICIPALES
+  {id:"cf40",d:"Municipal WT",pv:"Municipalidad",e:"WT",c:"Impuestos",ct:"530783",dv:15},
+  {id:"cf41",d:"Municipal BN",pv:"Municipalidad",e:"BN",c:"Impuestos",ct:"551919",dv:15},
+  {id:"cf42",d:"Municipal RC",pv:"Municipalidad",e:"RC",c:"Impuestos",ct:"650840",dv:15},
+  {id:"cf43",d:"Municipal R2",pv:"Municipalidad",e:"R2",c:"Impuestos",ct:"533175",dv:15},
+  {id:"cf44",d:"Municipal R1",pv:"Municipalidad",e:"R1",c:"Impuestos",ct:"530353",dv:15},
+  {id:"cf45",d:"Municipal SC",pv:"Municipalidad",e:"SC",c:"Impuestos",ct:"90598",dv:15},
+  // ARBA
+  {id:"cf46",d:"ARBA SC",pv:"ARBA",e:"SC",c:"Impuestos",ct:"047-090699-5",dv:15},
+  {id:"cf47",d:"ARBA WT",pv:"ARBA",e:"WT",c:"Impuestos",ct:"110-060375-2",dv:15},
+  {id:"cf48",d:"ARBA R1",pv:"ARBA",e:"R1",c:"Impuestos",ct:"110-102484-5",dv:15},
+  {id:"cf49",d:"ARBA R2",pv:"ARBA",e:"R2",c:"Impuestos",ct:"110-060840-1",dv:15},
+  {id:"cf50",d:"ARBA RC",pv:"ARBA",e:"RC",c:"Impuestos",ct:"110-025743-9",dv:15},
+  {id:"cf51",d:"ARBA BN",pv:"ARBA",e:"BN",c:"Impuestos",ct:"110-004324-2",dv:15},
+  {id:"cf52",d:"ARBA LT",pv:"ARBA",e:"LT",c:"Impuestos",ct:"047-091194-",dv:15},
+  // IMPUESTOS PERSONALES (ARCA/AFIP)
+  {id:"cf53",d:"Arca vep cargas sociales",pv:"ARCA/AFIP",e:"General",c:"Impuestos",ct:"",dv:20},
+  {id:"cf54",d:"Arba Sellos Hugo",pv:"ARBA",e:"General",c:"Impuestos",ct:"",dv:20},
+  {id:"cf55",d:"Arba Sellos Loli",pv:"ARBA",e:"General",c:"Impuestos",ct:"",dv:20},
+  {id:"cf56",d:"Arba IIBB Hugo",pv:"ARBA",e:"General",c:"Impuestos",ct:"",dv:20},
+  {id:"cf57",d:"Arba IIBB Loli",pv:"ARBA",e:"General",c:"Impuestos",ct:"",dv:20},
+  {id:"cf58",d:"Arca anual bsps goias Loli",pv:"ARCA",e:"General",c:"Impuestos",ct:"",dv:20},
+  {id:"cf59",d:"Arca anticipos goias y bs pers Loli",pv:"ARCA",e:"General",c:"Impuestos",ct:"651202",dv:20},
+  {id:"cf60",d:"Arca anticipos goias y bs pers Hugo",pv:"ARCA",e:"General",c:"Impuestos",ct:"",dv:20},
+  {id:"cf61",d:"Arca anual bs pers Hugo",pv:"ARCA",e:"General",c:"Impuestos",ct:"",dv:20},
+  // SEGUROS
+  {id:"cf62",d:"Complementario Loli",pv:"Seguro",e:"General",c:"Seguros",ct:"",dv:20},
+  {id:"cf63",d:"Complementario Hugo",pv:"Seguro",e:"General",c:"Seguros",ct:"44787",dv:20}
 ];
 
 // helpers
@@ -167,28 +191,34 @@ var USER=null,SEC="login";
 var DATA={iq:{},cob:{},cst:{},ev:{},movs:{},cierres:{},aj:{},hist:{},subc:{},cfg:{}};
 var DKEYS=["iq","cob","cst","ev","movs","cierres","aj","hist","subc","cfg"];
 
+// Base CF - never modified directly, overrides stored separately
+var CF_BASE = CF.map(function(c){return Object.assign({},c);});
+
+function getCF(){
+  // Start from base, apply overrides from Firebase
+  var result = CF_BASE.map(function(c){return Object.assign({},c);});
+  var overrides = oA(DATA.cfg).filter(function(x){return x.tipo==="cf_override";});
+  overrides.forEach(function(x){
+    if(x.activo===false){
+      // Mark as inactive
+      result = result.filter(function(c){return c.id!==x.cfid;});
+    } else {
+      result.forEach(function(c,i){if(c.id===x.cfid){result[i]=Object.assign({},c,x);}});
+    }
+  });
+  // Add custom costs (costo_extra) - deduplicated by _key
+  var extras = oA(DATA.cfg).filter(function(x){return x.tipo==="costo_extra"&&x.activo!==false;});
+  extras.forEach(function(x){
+    var already = result.filter(function(c){return c.id===x._key;}).length;
+    if(!already) result.push({id:x._key,d:x.desc,pv:x.pv||"",e:x.ed||"General",c:x.cat||"Otro",ct:x.cta_num||"",dv:x.dv||15});
+  });
+  return result;
+}
+
 function startDB(){
   DKEYS.forEach(function(k){
     DB.ref(k).on("value",function(s){
       DATA[k]=s.exists()?s.val():{};
-      // Apply CF overrides from Firebase config
-      if(k==="cfg"){
-        oA(DATA.cfg).forEach(function(x){
-          if(x.tipo==="cf_override"){
-            if(x.activo===false){
-              // Remove from CF array
-              for(var i=CF.length-1;i>=0;i--){if(CF[i].id===x.cfid){CF.splice(i,1);break;}}
-            } else {
-              // Update in CF array
-              CF.forEach(function(c,i){if(c.id===x.cfid){CF[i]=Object.assign({},c,x);}});
-            }
-          }
-          if(x.tipo==="costo_extra"&&x.activo){
-            var already=CF.filter(function(c){return c.id===x._key;}).length;
-            if(!already) CF.push({id:x._key,d:x.desc,pv:x.pv,e:x.ed||"General",c:x.cat,ct:x.cta_num||"",dv:x.dv||15});
-          }
-        });
-      }
       render();
     });
   });
@@ -655,9 +685,10 @@ function regPago(ckey){
 // COSTOS
 var _cstMes=mes(),_cstCat="Todas",_cstEd="Todos",_editC=null;
 function rCostos(){
+  var cfActual=getCF(); // Get CF with overrides applied
   var existing=oA(DATA.cst).filter(function(c){return c.mes===_cstMes;}).map(function(c){return c.cfid;});
-  var nuevos=CF.filter(function(c){return !existing.includes(c.id);});
-  if(nuevos.length){nuevos.forEach(function(c){DB.ref("cst").push({cfid:c.id,desc:c.d,pv:c.pv,ed:c.e,cat:c.c,mes:_cstMes,monto:0,nro_fact:"",fec_venc:"",pagado:false,cta_num:c.ct,dv:c.dv,cuenta:"Banco"});});setTimeout(rCostos,800);return;}
+  var nuevos=cfActual.filter(function(c){return !existing.includes(c.id);});
+  if(nuevos.length){nuevos.forEach(function(c){DB.ref("cst").push({cfid:c.id,desc:c.d,pv:c.pv||"",ed:c.e,cat:c.c,mes:_cstMes,monto:0,nro_fact:"",fec_venc:"",pagado:false,cta_num:c.ct||"",dv:c.dv,cuenta:"Banco"});});setTimeout(rCostos,800);return;}
   var cstA=oA(DATA.cst).filter(function(c){return c.mes===_cstMes&&(_cstCat==="Todas"||c.cat===_cstCat)&&(_cstEd==="Todos"||c.ed===_cstEd);});
   var totP=cstA.filter(function(c){return c.pagado;}).reduce(function(s,c){return s+Number(c.monto||0);},0);
   var totPend=cstA.filter(function(c){return !c.pagado;}).reduce(function(s,c){return s+Number(c.monto||0);},0);
@@ -1022,11 +1053,12 @@ function venderProp(key){
 function renderCfgCostos(){
   var el=G("cfg-body"); if(!el) return;
   var costosExtra=oA(DATA.cfg).filter(function(x){return x.tipo==="costo_extra";});
-  var cats=[]; CF.forEach(function(c){if(!cats.includes(c.c))cats.push(c.c);}); cats.push("Otro");
+  var cfActual=getCF();
+  var cats=[]; cfActual.forEach(function(c){if(!cats.includes(c.c))cats.push(c.c);}); cats.push("Otro");
 
-  // Group builtin costs by category
+  // Group costs by category
   var grupos={};
-  CF.forEach(function(c){if(!grupos[c.c])grupos[c.c]=[];grupos[c.c].push(c);});
+  cfActual.filter(function(c){return !c.id.startsWith("ce_")&&!oA(DATA.cfg).filter(function(x){return x.tipo==="costo_extra";}).map(function(x){return x._key;}).includes(c.id);}).forEach(function(c){if(!grupos[c.c])grupos[c.c]=[];grupos[c.c].push(c);});
 
   var o="<div class='card' style='margin-bottom:10px'>";
   o+="<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:8px'>";
@@ -1347,8 +1379,6 @@ function doEditCF(cfid){
   var data = {tipo:"cf_override",cfid:cfid,d:G("ecf-desc").value,pv:G("ecf-prov").value,c:G("ecf-cat").value,e:G("ecf-ed").value,ct:G("ecf-cta").value,dv:Number(G("ecf-dv").value||15),activo:true};
   if(over){DB.ref("cfg/"+over._key).update(data);}
   else{DB.ref("cfg").push(data);}
-  // Also update in-memory CF array
-  CF.forEach(function(c,i){if(c.id===cfid){CF[i]=Object.assign({},c,data);}});
   closeModal(); setTimeout(rConfig,300);
 }
 function quitarCF(cfid){
@@ -1359,8 +1389,6 @@ function quitarCF(cfid){
   var over = oA(DATA.cfg).filter(function(x){return x.tipo==="cf_override"&&x.cfid===id;})[0];
   if(over){DB.ref("cfg/"+over._key).update({activo:false});}
   else{DB.ref("cfg").push({tipo:"cf_override",cfid:id,activo:false,d:orig?orig.d:id});}
-  // Remove from in-memory CF
-  for(var i=CF.length-1;i>=0;i--){if(CF[i].id===id){CF.splice(i,1);break;}}
   setTimeout(rConfig,300);
 }
 
