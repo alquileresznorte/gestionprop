@@ -223,6 +223,17 @@ function getCF(){
 }
 
 function startDB(){
+  // Load any saved password changes from Firebase
+  DB.ref("usuarios").once("value",function(snap){
+    if(snap.exists()){
+      var overrides=snap.val();
+      USUARIOS.forEach(function(u){
+        if(overrides[u.u]&&overrides[u.u].clave){
+          u.p=overrides[u.u].clave;
+        }
+      });
+    }
+  });
   DKEYS.forEach(function(k){
     DB.ref(k).on("value",function(s){
       DATA[k]=s.exists()?s.val():{};
@@ -974,7 +985,7 @@ var _cfgTab = "propiedades"; // propiedades | costos | ingresos
 function rConfig(){
   if(USER.r!=="admin"){G("main").innerHTML="<p style='color:#EF4444;padding:20px'>Solo el administrador puede acceder.</p>";return;}
 
-  var tabs = [["propiedades","Propiedades"],["costos","Costos"],["ingresos","Ingresos extras"]];
+  var tabs = [["propiedades","Propiedades"],["costos","Costos"],["ingresos","Ingresos extras"],["usuarios","Usuarios"]];
   var o = "<h2 style='font-size:20px;font-weight:800;margin-bottom:12px'>Configuracion</h2>";
   o += "<div style='display:flex;gap:4px;margin-bottom:14px;flex-wrap:wrap'>";
   tabs.forEach(function(t){
@@ -992,6 +1003,7 @@ function rConfig(){
   if(_cfgTab==="propiedades") renderCfgProp();
   else if(_cfgTab==="costos") renderCfgCostos();
   else if(_cfgTab==="ingresos") renderCfgIngresos();
+  else if(_cfgTab==="usuarios") renderCfgUsuarios();
 }
 
 // ── TAB PROPIEDADES ───────────────────────────────────────────────────────────
@@ -1443,6 +1455,74 @@ function quitarCF(cfid){
   if(over){DB.ref("cfg/"+over._key).update({activo:false});}
   else{DB.ref("cfg").push({tipo:"cf_override",cfid:id,activo:false,d:orig?orig.d:id});}
   setTimeout(rConfig,300);
+}
+
+
+// ── USUARIOS Y CONTRASEÑAS ────────────────────────────────────────────────────
+function renderCfgUsuarios(){
+  var el=G("cfg-body"); if(!el) return;
+  var o="<div class='card'>";
+  o+="<h3 style='font-size:13px;font-weight:700;margin-bottom:12px'>Usuarios del sistema</h3>";
+  o+="<p style='color:#64748B;font-size:11px;margin-bottom:12px'>Como admin podes cambiar la contrasena de cualquier usuario.</p>";
+  USUARIOS.forEach(function(u){
+    o+="<div style='display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #334155'>";
+    o+="<div><div style='font-weight:600;font-size:13px'>"+u.n+"</div>";
+    o+="<div style='color:#64748B;font-size:11px'>Usuario: "+u.u+"  |  Rol: "+(u.r==="admin"?"Admin":"Empleado")+"</div></div>";
+    o+="<button class='btn bp bsm' data-chpass='"+u.u+"'>Cambiar clave</button>";
+    o+="</div>";
+  });
+  o+="</div>";
+  o+="<div class='card' style='margin-top:10px'>";
+  o+="<h3 style='font-size:13px;font-weight:700;margin-bottom:8px'>Claves actuales</h3>";
+  o+="<p style='color:#64748B;font-size:11px;margin-bottom:8px'>Las claves se guardan en el dispositivo. Despues de cambiarlas el empleado tiene que borrar el icono viejo y volver a instalarlo.</p>";
+  USUARIOS.forEach(function(u){
+    o+="<div style='display:flex;justify-content:space-between;padding:4px 0;font-size:12px;border-bottom:1px solid #1E293B'>";
+    o+="<span style='color:#94A3B8'>"+u.n+"</span><span style='color:#F1F5F9;font-family:monospace'>"+u.p+"</span></div>";
+  });
+  o+="</div>";
+  el.innerHTML=o;
+  el.onclick=function(e){
+    var b=e.target.closest("[data-chpass]");
+    if(b)openCambiarClave(b.dataset.chpass);
+  };
+}
+
+function openCambiarClave(usuario){
+  var u=USUARIOS.filter(function(x){return x.u===usuario;})[0];
+  if(!u){alert("Usuario no encontrado");return;}
+  var o="<p style='color:#94A3B8;font-size:12px;margin-bottom:12px'>Cambiando clave de: <b style='color:#F1F5F9'>"+u.n+"</b> ("+u.u+")</p>";
+  o+=fld("cp-nueva","Nueva contrasena *","","password");
+  o+=fld("cp-conf","Confirmar contrasena *","","password");
+  o+="<div style='display:flex;justify-content:flex-end;gap:7px;margin-top:12px'>";
+  o+="<button class='btn bg bsm' onclick='closeModal()'>Cancelar</button>";
+  o+="<button class='btn bok bsm' data-saveclave='1'>Guardar</button>";
+  o+="</div>";
+  openModal("Cambiar clave - "+u.n,o);
+  var md=MODS[MODS.length-1];
+  var _usuarioActual=usuario;
+  md.onclick=function(e){
+    if(e.target.dataset.saveclave)guardarClave(_usuarioActual);
+    else if(e.target.classList.contains("ov"))closeModal();
+  };
+}
+
+function guardarClave(usuario){
+  var nueva=G("cp-nueva").value;
+  var conf=G("cp-conf").value;
+  if(!nueva){alert("La nueva clave es obligatoria");return;}
+  if(nueva.length<4){alert("La clave debe tener al menos 4 caracteres");return;}
+  if(nueva!==conf){alert("Las claves no coinciden");return;}
+  var u=USUARIOS.filter(function(x){return x.u===usuario;})[0];
+  if(!u){alert("Usuario no encontrado");return;}
+  u.p=nueva;
+  // Save to Firebase so all devices get the update
+  DB.ref("usuarios/"+usuario).set({clave:nueva});
+  // Clear saved session for this user so they need to re-login
+  var saved=JSON.parse(localStorage.getItem("gp_rem")||"null");
+  if(saved&&saved.u===usuario){localStorage.removeItem("gp_rem");}
+  closeModal();
+  alert("Clave de "+u.n+" actualizada a: "+nueva+". Avisa al empleado que borre el icono y vuelva a instalar la app.");
+
 }
 
 
