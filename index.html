@@ -440,10 +440,12 @@ function openFicha(key){
   if(i.tel)o+="<a class='wa' href='https://wa.me/"+i.tel+"' target='_blank'>WhatsApp</a>";
   var ki=kpush(key);
   o+="<button class='btn bpu bsm' data-ac='"+ki+"'>Ver Acuerdo</button>";
+  o+="<button class='btn bg bsm' data-hev='"+ki+"'>📋 Historial</button>";
   if(esA){o+="<button class='btn bw bsm' data-obs='"+ki+"'>Observaciones</button>";}
-  if(esA){o+="<button class='btn bx bsm' data-cerrar='"+ki+"'>Cerrar Acuerdo</button>";}
   if(esA){o+="<button class='btn bok bsm' data-renovar='"+ki+"'>Renovar</button>";}
   if(esA){o+="<button class='btn bpu bsm' data-adicional='"+ki+"'>+ Adicional</button>";}
+  if(esA){o+="<button class='btn bx bsm' data-cerrar='"+ki+"'>Cerrar Acuerdo</button>";}
+  if(esA&&(i.deposito||0)>0){o+="<button class='btn bg bsm' data-devdep='"+ki+"'>Devolver Dep.</button>";}
   o+="</div>";
   openModal("Ficha - "+esc(i.nombre),o,true);
   var md=MODS[MODS.length-1];
@@ -454,6 +456,8 @@ function openFicha(key){
     else if(t.dataset.cerrar)openCerrar(kget(parseInt(t.dataset.cerrar)));
     else if(t.dataset.renovar)openRenovar(kget(parseInt(t.dataset.renovar)));
     else if(t.dataset.adicional)openAdicional(kget(parseInt(t.dataset.adicional)));
+    else if(t.dataset.hev)openHistorialEventos(kget(parseInt(t.dataset.hev)));
+    else if(t.dataset.devdep)openDevolverDeposito(kget(parseInt(t.dataset.devdep)));
     else if(e.target.classList.contains("ov"))closeModal();
   };
 }
@@ -497,9 +501,24 @@ function openCerrar(key){
 }
 function cerrarAc(key){
   var i=DATA.iq[key];
-  var reg=Object.assign({},i,{estado:"baja",fecha_egreso_real:G("egr-f").value,motivo_egreso:G("egr-m").value,obs_egreso:G("egr-o").value,fecha_cierre:hoy()});
-  DB.ref("hist").push(reg);DB.ref("iq/"+key).remove();
-  closeModal();closeModal();alert("Acuerdo cerrado. "+i.unidad+" quedo libre.");go("acuerdos");
+  // Get eventos history for this inquilino
+  var eventos=oA(DATA.cfg).filter(function(x){return x.tipo==="evento_iq"&&x.id_ac===i.id_ac;})
+    .sort(function(a,b){return (a.fecha||"").localeCompare(b.fecha||"");});
+  var reg=Object.assign({},i,{
+    estado:"baja",
+    fecha_egreso_real:G("egr-f").value,
+    motivo_egreso:G("egr-m").value,
+    obs_egreso:G("egr-o").value,
+    fecha_cierre:hoy(),
+    historial_eventos:eventos.map(function(ev){return ev.fecha+": "+ev.texto;}).join(" | ")
+  });
+  DB.ref("hist").push(reg);
+  DB.ref("iq/"+key).remove();
+  // Clean up eventos from cfg
+  eventos.forEach(function(ev){DB.ref("cfg/"+ev._key).remove();});
+  closeModal();closeModal();
+  alert("Acuerdo cerrado. "+i.unidad+" quedo libre. Historial de "+eventos.length+" eventos guardado.");
+  go("acuerdos");
 }
 // ── RENOVACION ───────────────────────────────────────────────────────────────
 function openRenovar(key){
@@ -614,122 +633,130 @@ function openNA(){
   o+="<div class='fld' style='grid-column:1/-1'><label class='lbl'>Unidad *</label><select class='inp' id='na-u'><option value=''>Seleccionar...</option>"+udl.map(function(u){return "<option>"+u+"</option>";}).join("")+"</select></div>";
   o+=fld("na-n","Nombre y apellido *")+fld("na-d","DNI *")+fld("na-t","Telefono")+fld("na-e","Email","","email");
   o+=fld("na-ce","Contacto emergencia")+fld("na-te","Tel. emergencia");
-  o+="<div class='fld' style='grid-column:1/-1'><div style='background:#0F172A;border-radius:8px;padding:10px;border:1px solid #334155'>";
-  o+="<div style='color:#3B82F6;font-size:11px;font-weight:700;margin-bottom:8px'>MONTOS AL INGRESO</div>";
+  o+="<div class='fld' style='grid-column:1/-1'>";
+  o+="<div style='background:#0F172A;border-radius:8px;padding:12px;border:1px solid #3B82F633'>";
+  o+="<div style='color:#3B82F6;font-size:11px;font-weight:700;margin-bottom:10px'>MONTOS AL INGRESO</div>";
   o+="<div class='g2'>";
   o+=fld("na-alq","Alquiler mensual $","","number");
   o+=fld("na-dep","Deposito $","","number");
   o+=fld("na-gs","Gastos de gestion $","","number");
-  o+=fld("na-pc","Pago a cuenta recibido $","","number");
+  o+=fld("na-desc-gs","Descuento en gastos $","0","number");
+  o+=fld("na-pc","Reserva / Pago a cuenta $","0","number");
+  o+=sld("na-cuotas-dep","Deposito en cuotas",["1 cuota (contado)","2 cuotas","3 cuotas"]);
+  o+=sld("na-cuotas-gs","Gastos de gestion en cuotas",["1 cuota (contado)","2 cuotas"]);
   o+="</div>";
-  o+="<div style='color:#64748B;font-size:10px;margin-top:4px'>El deposito y los gastos se registran como deuda. El pago a cuenta se descuenta automaticamente.</div>";
+  o+="<div id='na-resumen' style='background:#0F172A;border:1px solid #334155;border-radius:6px;padding:8px;font-size:11px;color:#94A3B8;margin-top:8px'>Completa los montos para ver el resumen</div>";
   o+="</div></div>";
-  // Cuotas para deposito y gastos
-  o+="<div class='fld' style='grid-column:1/-1'><div style='background:#0F172A;border-radius:8px;padding:10px;border:1px solid #334155'>";
-  o+="<div style='color:#8B5CF6;font-size:11px;font-weight:700;margin-bottom:8px'>FINANCIACION (opcional)</div>";
-  o+="<div class='g2'>";
-  o+=sld("na-cuotas-dep","Deposito en cuotas",["1 cuota (contado)","2 cuotas","3 cuotas"],"1 cuota (contado)");
-  o+=sld("na-cuotas-gs","Gastos en cuotas",["1 cuota (contado)","2 cuotas","3 cuotas"],"1 cuota (contado)");
-  o+="</div></div></div>";
-  o+=fld("na-ing","Inicio contrato","","date")+fld("na-egr","Fin contrato","","date");
-  o+="<div class='fld' style='grid-column:1/-1'>"+tad("na-obs","Obs. al ingreso")+"</div>";
+  o+=fld("na-ing","Inicio contrato","","date")+fld("na-egr","Fin contrato (1 año)","","date");
+  o+="<div class='fld' style='grid-column:1/-1'>"+tad("na-obs","Observaciones al ingreso")+"</div>";
   o+="</div>";
-  o+="<div style='display:flex;justify-content:flex-end;gap:7px;margin-top:12px'><button class='btn bg bsm' onclick='closeModal()'>Cancelar</button><button class='btn bok bsm' onclick='saveNA()'>Guardar</button></div>";
+  o+="<div style='display:flex;justify-content:flex-end;gap:7px;margin-top:12px'><button class='btn bg bsm' onclick='closeModal()'>Cancelar</button><button class='btn bok bsm' onclick='saveNA()'>Crear Acuerdo</button></div>";
   openModal("Nuevo Acuerdo",o,true);
+  // Live preview
+  setTimeout(function(){
+    ["na-alq","na-dep","na-gs","na-desc-gs","na-pc"].forEach(function(id){
+      var el=G(id); if(el) el.oninput=actualizarResumenNA;
+    });
+  },100);
+}
+function actualizarResumenNA(){
+  var alq=Number((G("na-alq")||{value:0}).value||0);
+  var dep=Number((G("na-dep")||{value:0}).value||0);
+  var gs=Number((G("na-gs")||{value:0}).value||0);
+  var desc=Number((G("na-desc-gs")||{value:0}).value||0);
+  var pc=Number((G("na-pc")||{value:0}).value||0);
+  var gsNeto=Math.max(0,gs-desc);
+  var total=alq+dep+gsNeto;
+  var saldo=Math.max(0,total-pc);
+  var el=G("na-resumen"); if(!el) return;
+  el.innerHTML="<b style='color:#F1F5F9'>Total al ingreso: "+fmt(total)+"</b>"
+    +"<br>Alquiler: "+fmt(alq)
+    +(dep>0?" | Deposito: "+fmt(dep):"")
+    +(gsNeto>0?" | Gastos: "+fmt(gsNeto)+(desc>0?" (desc. "+fmt(desc)+")":""):"")
+    +(pc>0?"<br><span style='color:#10B981'>Reserva/Pago a cuenta: "+fmt(pc)+"</span><br><b style='color:#F59E0B'>Saldo pendiente: "+fmt(saldo)+"</b>":"");
 }
 
 function saveNA(){
   var u=G("na-u").value,n=G("na-n").value,d=G("na-d").value;
   if(!u||!n||!d){alert("Unidad, nombre y DNI son obligatorios");return;}
   var hist=oA(DATA.hist).filter(function(h){return h.dni===d;});
-  if(hist.length>0&&!confirm("Este DNI tiene historial previo. Motivo: "+(hist[0].motivo_egreso||"--")+". Obs: "+(hist[0].obs_egreso||"--")+". Continuas?"))return;
+  if(hist.length>0&&!confirm("Este DNI tiene historial previo. Motivo: "+(hist[0].motivo_egreso||"--")+". Continuas?"))return;
 
   var id=nid();
   var alq=Number(G("na-alq").value||0);
   var dep=Number(G("na-dep").value||0);
   var gs=Number(G("na-gs").value||0);
+  var desc=Number(G("na-desc-gs").value||0);
+  var gsNeto=Math.max(0,gs-desc);
   var pc=Number(G("na-pc").value||0);
   var ing=G("na-ing").value;
-  var cuotasDep=G("na-cuotas-dep")?parseInt(G("na-cuotas-dep").value)||1:1;
-  var cuotasGs=G("na-cuotas-gs")?parseInt(G("na-cuotas-gs").value)||1:1;
+  var cuotasDep=parseInt((G("na-cuotas-dep").value||"1").charAt(0))||1;
+  var cuotasGs=parseInt((G("na-cuotas-gs").value||"1").charAt(0))||1;
   var mesInicio=ing?ing.slice(0,7):mes();
 
-  // Save inquilino record
-  var reg={
+  function getMesN(start,n){
+    var yr=parseInt(start.slice(0,4)),mo=parseInt(start.slice(5,7))+n;
+    while(mo>12){mo-=12;yr++;} return yr+"-"+String(mo).padStart(2,"0");
+  }
+
+  // Save inquilino
+  DB.ref("iq").push({
     id_ac:id,unidad:u,estado:"activo",nombre:n,dni:d,
     tel:G("na-t").value,email:G("na-e").value,
     ct_emerg:G("na-ce").value,tel_emerg:G("na-te").value,
-    alquiler:alq,deposito:dep,gastos:gs,pago_cuenta:pc,
-    total_ingreso:alq+dep+gs,
+    alquiler:alq,deposito:dep,gastos:gs,gastos_neto:gsNeto,
+    descuento_gs:desc,pago_cuenta:pc,
+    total_ingreso:alq+dep+gsNeto,
     ingreso:ing,egreso:G("na-egr").value,
-    ultimo_aj:ing,obs_ingreso:G("na-obs").value,obs_egreso:"",fecha_reg:hoy()
-  };
-  DB.ref("iq").push(reg);
+    ultimo_aj:ing,obs_ingreso:G("na-obs").value,obs_egreso:"",
+    eventos:[],fecha_reg:hoy()
+  });
 
-  // Helper: get month string N months from start
-  function getMes(start, n){
-    var yr=parseInt(start.slice(0,4)),mo=parseInt(start.slice(5,7))+n;
-    while(mo>12){mo-=12;yr++;}
-    return yr+"-"+String(mo).padStart(2,"0");
+  var pcRestante=pc;
+  function aplicarPC(monto){
+    if(pcRestante<=0) return {monto:monto,pagos:{},estado:"pendiente"};
+    var aplicado=Math.min(pcRestante,monto);
+    pcRestante-=aplicado;
+    var pagos={};
+    pagos[Date.now()+Math.random()]=({fecha:hoy(),monto:aplicado,cuenta:"Efectivo",concepto:"Reserva / pago a cuenta"});
+    return {monto:monto,pagos:pagos,estado:aplicado>=monto?"pagado":"parcial"};
   }
 
-  // 1. Register ALQUILER del primer mes con pago a cuenta aplicado
+  // Alquiler primer mes
   if(alq>0){
-    var cobAlq={id_ac:id,unidad:u,inq:n,mes:mesInicio,monto_total:alq,sal_ant:0,estado:"pendiente",pagos:{}};
-    if(pc>0){
-      // Apply pago a cuenta to primer mes alquiler
-      var aplicado=Math.min(pc,alq);
-      cobAlq.pagos[Date.now()]={fecha:hoy(),monto:aplicado,cuenta:"Efectivo",concepto:"Pago a cuenta ingreso"};
-      cobAlq.estado=aplicado>=alq?"pagado":"parcial";
-      pc-=aplicado; // remaining pago a cuenta
-    }
-    DB.ref("cob").push(cobAlq);
+    var ca=aplicarPC(alq);
+    DB.ref("cob").push({id_ac:id,unidad:u,inq:n,mes:mesInicio,
+      monto_total:ca.monto,sal_ant:0,estado:ca.estado,pagos:ca.pagos,
+      concepto:"Alquiler"});
   }
-
-  // 2. Register DEPOSITO en cuotas
+  // Deposito en cuotas
   if(dep>0){
-    var montoCuotaDep=Math.round(dep/cuotasDep);
+    var cuotaDep=Math.round(dep/cuotasDep);
     for(var cd=0;cd<cuotasDep;cd++){
-      var mesDep=getMes(mesInicio,cd);
-      var cobDep={id_ac:id,unidad:u,inq:n,mes:mesDep,
-        monto_total:montoCuotaDep,sal_ant:0,estado:"pendiente",pagos:{},
-        concepto:"Deposito cuota "+(cd+1)+"/"+cuotasDep};
-      // Apply remaining pago a cuenta to first cuota
-      if(cd===0&&pc>0){
-        var aplicadoDep=Math.min(pc,montoCuotaDep);
-        cobDep.pagos[Date.now()+10]={fecha:hoy(),monto:aplicadoDep,cuenta:"Efectivo",concepto:"Pago a cuenta"};
-        cobDep.estado=aplicadoDep>=montoCuotaDep?"pagado":"parcial";
-        pc-=aplicadoDep;
-      }
-      DB.ref("cob").push(cobDep);
+      var cad=cd===0?aplicarPC(cuotaDep):{monto:cuotaDep,pagos:{},estado:"pendiente"};
+      DB.ref("cob").push({id_ac:id,unidad:u,inq:n,mes:getMesN(mesInicio,cd),
+        monto_total:cad.monto,sal_ant:0,estado:cad.estado,pagos:cad.pagos,
+        concepto:"Deposito cuota "+(cd+1)+"/"+cuotasDep});
     }
   }
-
-  // 3. Register GASTOS DE GESTION en cuotas
-  if(gs>0){
-    var montoCuotaGs=Math.round(gs/cuotasGs);
+  // Gastos gestion en cuotas
+  if(gsNeto>0){
+    var cuotaGs=Math.round(gsNeto/cuotasGs);
     for(var cg=0;cg<cuotasGs;cg++){
-      var mesGs=getMes(mesInicio,cg);
-      var cobGs={id_ac:id,unidad:u,inq:n,mes:mesGs,
-        monto_total:montoCuotaGs,sal_ant:0,estado:"pendiente",pagos:{},
-        concepto:"Gastos de gestion cuota "+(cg+1)+"/"+cuotasGs};
-      if(cg===0&&pc>0){
-        var aplicadoGs=Math.min(pc,montoCuotaGs);
-        cobGs.pagos[Date.now()+20]={fecha:hoy(),monto:aplicadoGs,cuenta:"Efectivo",concepto:"Pago a cuenta"};
-        cobGs.estado=aplicadoGs>=montoCuotaGs?"pagado":"parcial";
-        pc-=aplicadoGs;
-      }
-      DB.ref("cob").push(cobGs);
+      var cag=cg===0?aplicarPC(cuotaGs):{monto:cuotaGs,pagos:{},estado:"pendiente"};
+      DB.ref("cob").push({id_ac:id,unidad:u,inq:n,mes:getMesN(mesInicio,cg),
+        monto_total:cag.monto,sal_ant:0,estado:cag.estado,pagos:cag.pagos,
+        concepto:"Gastos de gestion"+(cuotasGs>1?" cuota "+(cg+1)+"/"+cuotasGs:"")+(desc>0?" (c/descuento "+fmt(desc)+")":"")});
     }
   }
 
   closeModal();
-  var resumen="Acuerdo #"+id+" registrado."+(hist.length?" (Reingresante)":"");
-  resumen+=" Se crearon las siguientes cobranzas:";
-  if(alq>0) resumen+=" - Alquiler "+mesInicio+": "+fmt(alq);
-  if(dep>0) resumen+=" - Deposito: "+fmt(dep)+(cuotasDep>1?" en "+cuotasDep+" cuotas":"");
-  if(gs>0) resumen+=" - Gastos de gestion: "+fmt(gs)+(cuotasGs>1?" en "+cuotasGs+" cuotas":"");
-  alert(resumen);
+  var msg="Acuerdo #"+id+" creado.";
+  if(alq>0) msg+=" Alquiler "+fmt(alq)+".";
+  if(dep>0) msg+=" Deposito "+fmt(dep)+(cuotasDep>1?" en "+cuotasDep+" cuotas":"")+" .";
+  if(gsNeto>0) msg+=" Gastos "+fmt(gsNeto)+(cuotasGs>1?" en "+cuotasGs+" cuotas":"")+(desc>0?" (desc. "+fmt(desc)+")":"")+" .";
+  if(pc>0) msg+=" Reserva "+fmt(pc)+" aplicada.";
+  alert(msg);
 }
 
 
@@ -747,7 +774,8 @@ function fH(){
   el.innerHTML=list.map(function(i){
     var cod=(i.unidad||"").split("-")[0],ec=COL[cod]||"#64748B";
     var malo=i.obs_egreso&&(i.obs_egreso.toLowerCase().includes("deuda")||i.obs_egreso.toLowerCase().includes("problema"));
-    return "<div class='card' style='padding:12px;border-left:3px solid "+(malo?"#EF4444":"#334155")+"'><div style='display:flex;gap:9px;align-items:center'><div style='background:"+ec+"22;color:"+ec+";border-radius:9px;padding:5px 9px;font-weight:800;font-size:11px;min-width:44px;text-align:center'>"+i.unidad+"</div><div><div style='font-weight:700;font-size:13px'>"+esc(i.nombre)+(malo?" [DEUDA]":"")+"</div><div style='color:#64748B;font-size:10px'>DNI "+(i.dni||"--")+" - ID #"+(i.id_ac||"--")+" - "+(i.ingreso||"")+" a "+(i.fecha_egreso_real||i.egreso||"")+"</div>"+(i.motivo_egreso?"<div style='color:#64748B;font-size:10px'>"+esc(i.motivo_egreso)+"</div>":"")+(i.obs_egreso?"<div style='color:#94A3B8;font-size:10px'>"+esc(i.obs_egreso)+"</div>":"")+"</div></div></div>";
+    var evStr=i.historial_eventos?"<div style='color:#64748B;font-size:10px;margin-top:4px;border-top:1px solid #334155;padding-top:4px'>"+esc(i.historial_eventos.slice(0,200))+(i.historial_eventos.length>200?"...":"")+"</div>":"";
+    return "<div class='card' style='padding:12px;border-left:3px solid "+(malo?"#EF4444":"#334155")+"'><div style='display:flex;gap:9px;align-items:center'><div style='background:"+ec+"22;color:"+ec+";border-radius:9px;padding:5px 9px;font-weight:800;font-size:11px;min-width:44px;text-align:center'>"+i.unidad+"</div><div style='flex:1'><div style='font-weight:700;font-size:13px'>"+esc(i.nombre)+(malo?" [DEUDA]":"")+"</div><div style='color:#64748B;font-size:10px'>DNI "+(i.dni||"--")+" - ID #"+(i.id_ac||"--")+" - "+(i.ingreso||"")+" a "+(i.fecha_egreso_real||i.egreso||"")+"</div>"+(i.motivo_egreso?"<div style='color:#64748B;font-size:10px'>"+esc(i.motivo_egreso)+"</div>":"")+(i.obs_egreso?"<div style='color:#94A3B8;font-size:10px'>"+esc(i.obs_egreso)+"</div>":"")+evStr+"</div></div></div>";
   }).join("");
 }
 
@@ -1720,6 +1748,96 @@ function aplicarAdicionales(unidad, montoBase, mesC){
   });
   var extra=adicionales.reduce(function(s,a){return s+a.monto;},0);
   return extra;
+}
+
+
+// ── HISTORIAL DE EVENTOS POR INQUILINO ───────────────────────────────────────
+function openHistorialEventos(key){
+  var i=DATA.iq[key]; if(!i) return;
+  var ki=kpush(key);
+  var eventos=oA(DATA.cfg).filter(function(x){return x.tipo==="evento_iq"&&x.id_ac===i.id_ac;})
+    .sort(function(a,b){return (b.fecha||"").localeCompare(a.fecha||"");});
+  var o="<p style='color:#64748B;font-size:11px;margin-bottom:10px'>"+i.unidad+" - "+esc(i.nombre)+" - ID #"+i.id_ac+"</p>";
+  // List existing events
+  if(eventos.length){
+    o+="<div style='max-height:220px;overflow-y:auto;margin-bottom:12px'>";
+    eventos.forEach(function(ev){
+      o+="<div style='background:#0F172A;border-radius:7px;padding:8px 10px;margin-bottom:6px;border-left:3px solid #3B82F6'>";
+      o+="<div style='display:flex;justify-content:space-between;font-size:11px;color:#64748B;margin-bottom:3px'>";
+      o+="<span>"+esc(ev.fecha||"")+"</span><span>"+esc(ev.usuario||"")+"</span></div>";
+      o+="<div style='font-size:12px;color:#F1F5F9'>"+esc(ev.texto||"")+"</div></div>";
+    });
+    o+="</div>";
+  } else {
+    o+="<p style='color:#64748B;font-size:12px;margin-bottom:10px'>Sin eventos registrados.</p>";
+  }
+  // Add new event
+  o+="<div style='border-top:1px solid #334155;padding-top:10px'>";
+  o+="<div class='lbl' style='margin-bottom:6px'>Agregar observacion / evento</div>";
+  o+=tad("ev-txt","Escribi lo que paso o lo que hay que recordar...","");
+  o+="</div>";
+  o+="<div style='display:flex;justify-content:flex-end;gap:7px;margin-top:10px'>";
+  o+="<button class='btn bg bsm' onclick='closeModal()'>Cerrar</button>";
+  o+="<button class='btn bok bsm' data-saveev='"+ki+"'>Guardar</button></div>";
+  openModal("Historial - "+esc(i.nombre),o,true);
+  var md=MODS[MODS.length-1];
+  md.onclick=function(e){
+    if(e.target.dataset.saveev)saveEventoIq(kget(parseInt(e.target.dataset.saveev)));
+    else if(e.target.classList.contains("ov"))closeModal();
+  };
+}
+function saveEventoIq(key){
+  var i=DATA.iq[key]; if(!i) return;
+  var txt=G("ev-txt").value.trim();
+  if(!txt){alert("Escribi algo");return;}
+  DB.ref("cfg").push({
+    tipo:"evento_iq",id_ac:i.id_ac,unidad:i.unidad,
+    texto:txt,fecha:hoy(),usuario:USER.n,fecha_ts:Date.now()
+  });
+  closeModal();
+  setTimeout(function(){openHistorialEventos(key);},300);
+}
+
+// ── DEVOLUCION DE DEPOSITO ────────────────────────────────────────────────────
+function openDevolverDeposito(key){
+  var i=DATA.iq[key]; if(!i) return;
+  var ki=kpush(key);
+  var o="<div class='wbx' style='margin-bottom:12px'>Deposito original: <b>"+fmt(i.deposito||0)+"</b></div>";
+  o+=fld("dd-monto","Monto a devolver $",i.deposito||0,"number");
+  o+=fld("dd-fecha","Fecha de devolucion",hoy(),"date");
+  o+=sld("dd-cta","Cuenta desde donde se devuelve",CTAS);
+  o+=fld("dd-obs","Observacion (motivo, condiciones, etc.)","");
+  o+="<div style='display:flex;justify-content:flex-end;gap:7px;margin-top:12px'>";
+  o+="<button class='btn bg bsm' onclick='closeModal()'>Cancelar</button>";
+  o+="<button class='btn bx bsm' data-savedep='"+ki+"'>Registrar Devolucion</button></div>";
+  openModal("Devolucion de Deposito - "+i.unidad,o);
+  var md=MODS[MODS.length-1];
+  md.onclick=function(e){
+    if(e.target.dataset.savedep)saveDevolucionDep(kget(parseInt(e.target.dataset.savedep)));
+    else if(e.target.classList.contains("ov"))closeModal();
+  };
+}
+function saveDevolucionDep(key){
+  var i=DATA.iq[key]; if(!i) return;
+  var monto=Number(G("dd-monto").value||0);
+  if(!monto){alert("Ingresa el monto");return;}
+  if(!confirm("Registrar devolucion de "+fmt(monto)+" del deposito de "+i.nombre+"?"))return;
+  // Register as egreso in aj (caja)
+  DB.ref("aj").push({
+    fecha:G("dd-fecha").value,tipo:"egreso",sub:"Devolucion deposito",
+    cuenta:G("dd-cta").value,concepto:"Devolucion deposito - "+i.unidad+" - "+i.nombre,
+    monto:monto,obs:G("dd-obs").value
+  });
+  // Register evento in historial
+  DB.ref("cfg").push({
+    tipo:"evento_iq",id_ac:i.id_ac,unidad:i.unidad,
+    texto:"Devolucion de deposito: "+fmt(monto)+" desde "+G("dd-cta").value+". "+G("dd-obs").value,
+    fecha:G("dd-fecha").value,usuario:USER.n,fecha_ts:Date.now()
+  });
+  // Update inquilino deposito
+  DB.ref("iq/"+key).update({deposito_devuelto:monto,fecha_dev_dep:G("dd-fecha").value});
+  closeModal();closeModal();
+  alert("Devolucion de "+fmt(monto)+" registrada en Caja y en el historial del inquilino.");
 }
 
 
